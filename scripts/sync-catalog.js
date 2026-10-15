@@ -4,11 +4,21 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error('[OmniIndex] Missing Supabase environment variables.');
+  console.error('[Omnidex] Missing Supabase environment variables.');
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Disables realtime websockets so it runs cleanly on Node.js in GitHub Actions
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+  realtime: {
+    enabled: false,
+  },
+});
+
 const GRAPHQL_ENDPOINT = 'https://graphql.anilist.co';
 
 const QUERY = `
@@ -58,15 +68,15 @@ function filterOfficialLinks(links) {
   ];
 
   return links
-    .filter(l => officialTargets.some(target => l.site.toLowerCase().includes(target)))
+    .filter(l => officialTargets.some(target => (l.site || '').toLowerCase().includes(target)))
     .map(l => ({ site: l.site, url: l.url }));
 }
 
 async function runSync() {
-  console.log('[OmniIndex] Starting automated catalog sync...');
+  console.log('[Omnidex] Starting automated catalog sync...');
 
   for (let page = 1; page <= 3; page++) {
-    console.log(`[OmniIndex] Requesting page ${page}...`);
+    console.log(`[Omnidex] Fetching page ${page}...`);
     const res = await fetch(GRAPHQL_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -105,18 +115,18 @@ async function runSync() {
       .upsert(upsertRows, { onConflict: 'id' });
 
     if (error) {
-      console.error('[OmniIndex] Supabase error:', error.message);
+      console.error('[Omnidex] Supabase error:', error.message);
     } else {
-      console.log(`[OmniIndex] Page ${page} synchronized successfully (${upsertRows.length} titles).`);
+      console.log(`[Omnidex] Page ${page} synchronized successfully (${upsertRows.length} titles).`);
     }
 
     await new Promise((r) => setTimeout(r, 1200));
   }
 
-  console.log('[OmniIndex] Catalog sync completed.');
+  console.log('[Omnidex] Catalog sync completed.');
 }
 
 runSync().catch((err) => {
-  console.error('[OmniIndex] Fatal error in sync execution:', err);
+  console.error('[Omnidex] Fatal error in sync execution:', err);
   process.exit(1);
 });
