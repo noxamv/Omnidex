@@ -1,7 +1,10 @@
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
+import Spotlight from '../components/Spotlight';
+import ShareBar from '../components/ShareBar';
+import { ExternalLink, Star } from 'lucide-react';
 
-export const revalidate = 1800;
+export const revalidate = 1800; // Refreshes every 30 minutes
 
 export default async function HomePage({
   searchParams,
@@ -26,51 +29,65 @@ export default async function HomePage({
   }
 
   const { data: catalog } = await query;
+  const spotlightItem = catalog && catalog.length > 0 ? catalog[0] : null;
+  const listItems = catalog && catalog.length > 0 ? catalog.slice(1) : [];
 
   const categories = [
-    { label: 'All Media', value: 'all' },
-    { label: 'Anime', value: 'anime' },
+    { label: 'All Catalog', value: 'all' },
     { label: 'Manhwa (Webtoons)', value: 'manhwa' },
+    { label: 'Anime', value: 'anime' },
     { label: 'Manga', value: 'manga' },
     { label: 'Light & Web Novels', value: 'novel' },
   ];
 
   return (
-    <main className="max-w-7xl mx-auto px-6 py-8">
-      {/* Category Filter Chips */}
-      <div className="flex gap-2 overflow-x-auto pb-4 mb-6">
-        {categories.map((cat) => (
-          <Link
-            key={cat.value}
-            href={`/?type=${cat.value}${searchQuery ? `&search=${searchQuery}` : ''}`}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold whitespace-nowrap transition ${
-              selectedType === cat.value
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                : 'bg-[#10141d] border border-[#1c2333] text-slate-400 hover:text-white hover:border-slate-700'
-            }`}
-          >
-            {cat.label}
-          </Link>
-        ))}
+    <main className="max-w-7xl mx-auto px-4 sm:px-8 py-6">
+      {/* 1. AniList-Style Hero Spotlight */}
+      {!searchQuery && spotlightItem && (
+        <Spotlight item={spotlightItem} />
+      )}
+
+      {/* 2. MangaFlow Filter Navigation Bar */}
+      <div className="flex items-center justify-between border-b border-slate-800/80 pb-4 mb-6 gap-4">
+        <div className="flex gap-2 overflow-x-auto scrollbar-none py-1">
+          {categories.map((cat) => (
+            <Link
+              key={cat.value}
+              href={`/?type=${cat.value}${searchQuery ? `&search=${searchQuery}` : ''}`}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                selectedType === cat.value
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'bg-[#111622] border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+              }`}
+            >
+              {cat.label}
+            </Link>
+          ))}
+        </div>
+
+        <span className="text-xs text-slate-500 font-medium hidden sm:block whitespace-nowrap">
+          {catalog?.length || 0} entries
+        </span>
       </div>
 
-      {/* Directory Grid */}
+      {/* 3. Media Grid */}
       {(!catalog || catalog.length === 0) ? (
-        <div className="text-center py-20 border border-dashed border-[#1c2333] rounded-2xl bg-[#10141d]/30">
-          <p className="text-slate-400 font-medium">Catalog is currently syncing.</p>
-          <p className="text-xs text-slate-600 mt-1">Run the sync script or wait for the GitHub Action run.</p>
+        <div className="text-center py-24 border border-dashed border-slate-800 rounded-2xl bg-[#0e131d]/40">
+          <p className="text-slate-400 font-medium">No titles indexed matching this filter.</p>
+          <p className="text-xs text-slate-600 mt-1">Automatic sync runs every 30 minutes via GitHub Actions.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5">
-          {catalog.map((item) => {
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
+          {(searchQuery ? catalog : listItems).map((item) => {
             const officialSources = (item.official_links as any[]) || [];
             const primarySource = officialSources[0];
 
             return (
               <div
                 key={item.id}
-                className="group flex flex-col bg-[#10141d] rounded-xl border border-[#1c2333] overflow-hidden hover:border-indigo-500/40 transition duration-300"
+                className="group flex flex-col bg-[#0e131d] rounded-xl border border-slate-800/80 overflow-hidden hover:border-indigo-500/50 transition duration-300 shadow-md"
               >
+                {/* Poster Artwork */}
                 <div className="aspect-[3/4] relative overflow-hidden bg-slate-900">
                   <img
                     src={item.cover_url || '/placeholder.png'}
@@ -79,38 +96,44 @@ export default async function HomePage({
                     loading="lazy"
                   />
                   {item.score && (
-                    <span className="absolute top-2 right-2 bg-black/80 backdrop-blur-md px-2 py-0.5 rounded text-xs font-bold text-amber-400">
-                      ★ {item.score}
+                    <span className="absolute top-2 right-2 bg-black/80 backdrop-blur-md px-1.5 py-0.5 rounded text-[11px] font-bold text-amber-400 flex items-center gap-0.5">
+                      <Star className="w-3 h-3 fill-amber-400" /> {item.score}
                     </span>
                   )}
-                  <span className="absolute bottom-2 left-2 bg-[#080a0f]/80 border border-[#1c2333] backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] uppercase font-bold text-indigo-400">
+                  <span className="absolute bottom-2 left-2 bg-[#07090e]/85 border border-slate-700/60 backdrop-blur-md px-1.5 py-0.5 rounded text-[9px] uppercase font-bold text-indigo-300">
                     {item.media_type}
                   </span>
                 </div>
 
+                {/* Card Meta & Actions */}
                 <div className="p-3 flex flex-col flex-1 justify-between gap-3">
                   <div>
                     <h3 className="font-semibold text-xs leading-snug line-clamp-2 text-slate-200 group-hover:text-indigo-400 transition">
                       {item.title_primary}
                     </h3>
-                    <p className="text-[11px] text-slate-500 mt-1 capitalize">{item.format || item.status}</p>
+                    <p className="text-[10px] text-slate-500 mt-1 uppercase font-medium">
+                      {item.format || item.status}
+                    </p>
                   </div>
 
-                  <div>
+                  <div className="flex items-center gap-1.5 pt-2 border-t border-slate-800/60">
                     {primarySource ? (
                       <a
                         href={`/api/track?mediaId=${item.id}&target=${encodeURIComponent(primarySource.url)}&step=1`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block w-full text-center text-xs py-1.5 bg-indigo-600/15 hover:bg-indigo-600 text-indigo-400 hover:text-white rounded-lg font-semibold border border-indigo-500/20 hover:border-transparent transition"
+                        className="flex-1 text-center text-[11px] py-1.5 bg-indigo-600/15 hover:bg-indigo-600 text-indigo-400 hover:text-white rounded-lg font-bold border border-indigo-500/20 hover:border-transparent transition flex items-center justify-center gap-1"
                       >
-                        Official on {primarySource.site} ↗
+                        <span>{primarySource.site}</span>
+                        <ExternalLink className="w-3 h-3" />
                       </a>
                     ) : (
-                      <span className="block text-center text-[11px] py-1.5 text-slate-600 bg-[#080a0f] rounded-lg">
-                        Directory Indexed
+                      <span className="flex-1 text-center text-[10px] py-1.5 text-slate-600 bg-slate-900 rounded-lg">
+                        Indexed
                       </span>
                     )}
+
+                    <ShareBar title={item.title_primary} slug={item.slug} />
                   </div>
                 </div>
               </div>
