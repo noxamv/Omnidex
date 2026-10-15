@@ -11,8 +11,8 @@ export default async function HomePage({
 }: {
   searchParams: { type?: string; search?: string };
 }) {
-  const selectedType = searchParams.type || 'all';
-  const searchQuery = searchParams.search || '';
+  const selectedType = searchParams?.type || 'all';
+  const searchQuery = searchParams?.search || '';
 
   let query = supabase
     .from('media_catalog')
@@ -42,7 +42,7 @@ export default async function HomePage({
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-8 py-6">
-      {/* 1. AniList-Style Hero Spotlight */}
+      {/* 1. AniList-Style Hero Spotlight (shown when not searching) */}
       {!searchQuery && spotlightItem && (
         <Spotlight item={spotlightItem} />
       )}
@@ -105,7 +105,7 @@ export default async function HomePage({
                   </span>
                 </div>
 
-                {/* Card Meta & Actions */}
+                {/* Card Metadata & Action Buttons */}
                 <div className="p-3 flex flex-col flex-1 justify-between gap-3">
                   <div>
                     <h3 className="font-semibold text-xs leading-snug line-clamp-2 text-slate-200 group-hover:text-indigo-400 transition">
