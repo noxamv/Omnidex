@@ -1,0 +1,18 @@
+{
+  "name": "Omnidex — Universal Media Tracker",
+  "short_name": "Omnidex",
+  "description": "Unified tracker and official directory for Anime, Manga, Manhwa, and Novels.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07090e",
+  "theme_color": "#07090e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
