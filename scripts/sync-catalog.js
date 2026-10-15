@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const WebSocket = require('ws');
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -8,14 +9,13 @@ if (!supabaseUrl || !supabaseKey) {
   process.exit(1);
 }
 
-// Disables realtime websockets so it runs cleanly on Node.js in GitHub Actions
 const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
   },
   realtime: {
-    enabled: false,
+    transport: WebSocket,
   },
 });
 
