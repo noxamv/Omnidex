@@ -37,7 +37,7 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   const spotlightItem = !sanitizedSearch && items.length > 0 ? items[0] : null;
 
-  // Shelves corresponding to categories
+  // Shelf groupings
   const trendingNow = items.slice(0, 15);
   const manhwaShelf = items.filter((i) => i.media_type === 'manhwa');
   const novelShelf = items.filter((i) => i.media_type === 'novel');
