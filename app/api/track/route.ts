@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-// Complete worldwide legal reading & streaming domains
 const ALLOWED_PLATFORMS = [
   // Web Novels & Light Novels
   'royalroad.com',
