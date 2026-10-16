@@ -24,6 +24,9 @@ const GRAPHQL_ENDPOINT = 'https://graphql.anilist.co';
 const QUERY = `
 query ($page: Int, $perPage: Int) {
   Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      hasNextPage
+    }
     media(sort: TRENDING_DESC) {
       id
       type
@@ -61,14 +64,14 @@ function determineMediaType(item) {
 }
 
 function filterOfficialLinks(links) {
-  if (!links) return [];
+  if (!Array.isArray(links)) return [];
   const officialTargets = [
     'crunchyroll', 'netflix', 'webtoon', 'tapas', 'tappytoon', 
     'bookwalker', 'kobo', 'royal road', 'bilibili comics', 'manga plus'
   ];
 
   return links
-    .filter(l => officialTargets.some(target => (l.site || '').toLowerCase().includes(target)))
+    .filter(l => l && l.url && officialTargets.some(target => (l.site || '').toLowerCase().includes(target)))
     .map(l => ({ site: l.site, url: l.url }));
 }
 
@@ -77,17 +80,37 @@ async function runSync() {
 
   for (let page = 1; page <= 3; page++) {
     console.log(`[Omnidex] Fetching page ${page}...`);
-    const res = await fetch(GRAPHQL_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: QUERY, variables: { page, perPage: 50 } }),
-    });
+
+    let res;
+    try {
+      res = await fetch(GRAPHQL_ENDPOINT, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ query: QUERY, variables: { page, perPage: 50 } }),
+      });
+    } catch (networkErr) {
+      console.error(`[Omnidex] Network request failed for page ${page}:`, networkErr.message);
+      continue;
+    }
+
+    if (!res.ok) {
+      console.error(`[Omnidex] AniList returned HTTP ${res.status} on page ${page}`);
+      continue;
+    }
 
     const json = await res.json();
     const mediaList = json.data?.Page?.media || [];
 
+    if (mediaList.length === 0) {
+      console.log(`[Omnidex] No records returned for page ${page}.`);
+      break;
+    }
+
     const upsertRows = mediaList.map((item) => {
-      const title = item.title.english || item.title.romaji || 'Untitled';
+      const title = item.title?.english || item.title?.romaji || 'Untitled';
       const cleanSlug = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${item.id}`;
 
       return {
@@ -96,15 +119,15 @@ async function runSync() {
         media_type: determineMediaType(item),
         slug: cleanSlug,
         title_primary: title,
-        title_secondary: item.title.romaji,
-        cover_url: item.coverImage?.extraLarge,
-        banner_url: item.bannerImage,
+        title_secondary: item.title?.romaji || null,
+        cover_url: item.coverImage?.extraLarge || null,
+        banner_url: item.bannerImage || null,
         synopsis: item.description ? item.description.replace(/<[^>]*>?/gm, '') : '',
         status: item.status?.toLowerCase() || 'releasing',
-        format: item.format,
+        format: item.format || 'UNKNOWN',
         score: item.averageScore ? Number((item.averageScore / 10).toFixed(1)) : null,
         total_units: item.episodes || item.chapters || 0,
-        genres: item.genres || [],
+        genres: Array.isArray(item.genres) ? item.genres : [],
         official_links: filterOfficialLinks(item.externalLinks),
         updated_at: new Date().toISOString(),
       };
@@ -115,12 +138,12 @@ async function runSync() {
       .upsert(upsertRows, { onConflict: 'id' });
 
     if (error) {
-      console.error('[Omnidex] Supabase error:', error.message);
+      console.error('[Omnidex] Supabase upsert error:', error.message);
     } else {
       console.log(`[Omnidex] Page ${page} synchronized successfully (${upsertRows.length} titles).`);
     }
 
-    await new Promise((r) => setTimeout(r, 1200));
+    await new Promise((r) => setTimeout(r, 1500));
   }
 
   console.log('[Omnidex] Catalog sync completed.');
