@@ -38,9 +38,9 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   const spotlightItem = !sanitizedSearch && items.length > 0 ? items[0] : null;
 
-  // Shelves aligned with AniList classifications
+  // AniList shelf groupings
   const trendingNow = items.slice(0, 15);
-  const popularSeason = items.filter((i) => i.score && i.score >= 7.8).slice(0, 15);
+  const popularSeason = items.filter((i) => i.score && i.score >= 7.5).slice(0, 15);
   const manhwaShelf = items.filter((i) => i.media_type === 'manhwa');
   const animeShelf = items.filter((i) => i.media_type === 'anime');
   const mangaShelf = items.filter((i) => i.media_type === 'manga');
@@ -76,7 +76,7 @@ export default async function HomePage({ searchParams }: PageProps) {
 
         {/* Clean AniList-Style Horizontal Scroll Rail */}
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory">
-          {list.map((item, idx) => {
+          {list.map((item) => {
             const officialSources = (item.official_links as any[]) || [];
             const primarySource = officialSources[0];
 
@@ -85,7 +85,7 @@ export default async function HomePage({ searchParams }: PageProps) {
                 key={item.id}
                 className="w-28 sm:w-36 flex-shrink-0 snap-start flex flex-col group cursor-pointer"
               >
-                {/* Standard 2:3 Cover Poster without partial cutouts */}
+                {/* Standard 2:3 Cover Poster */}
                 <div className="w-full aspect-[2/3] relative rounded-xl overflow-hidden bg-slate-900 border border-slate-800/80 group-hover:border-indigo-500/50 transition duration-300 shadow-md">
                   <img
                     src={item.cover_url || '/placeholder.png'}
@@ -94,7 +94,6 @@ export default async function HomePage({ searchParams }: PageProps) {
                     loading="lazy"
                   />
 
-                  {/* Rank badge for Trending / Score Badge */}
                   {item.score ? (
                     <span className="absolute top-1.5 right-1.5 bg-black/80 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] font-black text-amber-400 flex items-center gap-0.5">
                       <Star className="w-2.5 h-2.5 fill-amber-400" /> {item.score}
@@ -142,7 +141,7 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-3">
-      {/* 1. 16:10 Hero Spotlight */}
+      {/* 1. 16:10 Spotlight */}
       {spotlightItem && <Spotlight item={spotlightItem} />}
 
       {/* 2. MangaFire Minimal Category Pill Filter */}
@@ -169,7 +168,6 @@ export default async function HomePage({ searchParams }: PageProps) {
           <p className="text-slate-400 text-sm font-medium">No series match this query.</p>
         </div>
       ) : sanitizedSearch || selectedType !== 'all' ? (
-        // Grid View when explicitly filtering or searching
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
           {items.map((item) => {
             const officialSources = (item.official_links as any[]) || [];
@@ -221,7 +219,6 @@ export default async function HomePage({ searchParams }: PageProps) {
           })}
         </div>
       ) : (
-        // AniList-style horizontal shelves for home
         <div>
           {renderHorizontalShelf('Trending Now', trendingNow)}
           {renderHorizontalShelf('Popular This Season', popularSeason)}
