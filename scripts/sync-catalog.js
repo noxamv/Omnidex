@@ -50,14 +50,10 @@ function determineMediaType(item) {
 function filterOfficialLinks(links) {
   if (!Array.isArray(links)) return [];
   const officialTargets = [
-    // Web Novels & Light Novels
     'royal road', 'webnovel', 'wattpad', 'scribble hub', 'j-novel club', 
     'yen press', 'bookwalker', 'kobo', 'amazon',
-    // Webtoons & Manhwa
     'webtoon', 'tapas', 'tappytoon', 'lezhin', 'toomics', 'pocket comics',
-    // Manga & Manhua
     'manga plus', 'viz', 'kodansha', 'comikey', 'bilibili comics', 'k manga', 'inkr',
-    // Anime Streaming
     'crunchyroll', 'netflix', 'hidive', 'disney', 'hulu', 'prime video', 'youtube'
   ];
 
@@ -85,13 +81,9 @@ async function fetchFromAniList(variables) {
 async function runSync() {
   console.log('[Omnidex] Starting comprehensive global catalog sync...');
 
-  // 1. Trending Anime, Manga & Manhwa from AniList
   const generalMedia = await fetchFromAniList({ page: 1, perPage: 50 });
-  
-  // 2. Official Light Novels from AniList
   const novelMedia = await fetchFromAniList({ page: 1, perPage: 35, type: 'MANGA', format: 'NOVEL' });
 
-  // 3. Web Novels across Royal Road, Webnovel, and Wattpad
   const globalCuratedWebNovels = [
     {
       id: 'rr-primal-hunter',
