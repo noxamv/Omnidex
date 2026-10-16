@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install Dependencies
+      - name: Install Dependencies Fast
         run: npm install @supabase/supabase-js ws --no-audit --no-fund --prefer-offline
 
       - name: Execute Catalog Sync
