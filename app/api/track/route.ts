@@ -2,24 +2,55 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
+// Complete worldwide legal reading & streaming domains
 const ALLOWED_PLATFORMS = [
-  'crunchyroll.com',
-  'netflix.com',
+  // Web Novels & Light Novels
+  'royalroad.com',
+  'webnovel.com',
+  'wattpad.com',
+  'scribblehub.com',
+  'j-novel.club',
+  'yenpress.com',
+  'bookwalker.jp',
+  'global.bookwalker.jp',
+  'kobo.com',
+  'amazon.com',
+
+  // Manhwa & Webtoons
   'webtoons.com',
   'tapas.io',
   'tappytoon.com',
-  'bookwalker.jp',
-  'kobo.com',
-  'royalroad.com',
-  'bilibilicomics.com',
+  'lezhinus.com',
+  'toomics.com',
+  'pocketcomics.com',
+
+  // Manga & Manhua
   'mangaplus.shueisha.co.jp',
+  'viz.com',
+  'kodansha.us',
+  'comikey.com',
+  'kmanga.kodansha.net',
+  'inkr.com',
+  'bilibilicomics.com',
+  'bilibili.tv',
+
+  // Anime Streaming
+  'crunchyroll.com',
+  'netflix.com',
+  'hidive.com',
+  'disneyplus.com',
+  'hulu.com',
+  'primevideo.com',
+  'youtube.com'
 ];
 
 function isSafeUrl(urlStr: string): boolean {
   try {
     const parsed = new URL(urlStr);
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
-    return ALLOWED_PLATFORMS.some((domain) => parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`));
+    return ALLOWED_PLATFORMS.some(
+      (domain) => parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`)
+    );
   } catch {
     return false;
   }
@@ -57,7 +88,7 @@ export async function GET(req: NextRequest) {
             user_id: user.id,
             media_id: mediaId,
             progress: progressStep,
-            status: 'watching_reading',
+            status: 'reading_watching',
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'user_id,media_id' }
