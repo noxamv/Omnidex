@@ -50,9 +50,17 @@ function determineMediaType(item) {
 function filterOfficialLinks(links) {
   if (!Array.isArray(links)) return [];
   const officialTargets = [
-    'crunchyroll', 'netflix', 'webtoon', 'tapas', 'tappytoon',
-    'bookwalker', 'kobo', 'royal road', 'webnovel', 'j-novel club', 'yen press', 'manga plus'
+    // Web Novels & Light Novels
+    'royal road', 'webnovel', 'wattpad', 'scribble hub', 'j-novel club', 
+    'yen press', 'bookwalker', 'kobo', 'amazon',
+    // Webtoons & Manhwa
+    'webtoon', 'tapas', 'tappytoon', 'lezhin', 'toomics', 'pocket comics',
+    // Manga & Manhua
+    'manga plus', 'viz', 'kodansha', 'comikey', 'bilibili comics', 'k manga', 'inkr',
+    // Anime Streaming
+    'crunchyroll', 'netflix', 'hidive', 'disney', 'hulu', 'prime video', 'youtube'
   ];
+
   return links
     .filter(l => l && l.url && officialTargets.some(t => (l.site || '').toLowerCase().includes(t)))
     .map(l => ({ site: l.site, url: l.url }));
@@ -75,16 +83,16 @@ async function fetchFromAniList(variables) {
 }
 
 async function runSync() {
-  console.log('[Omnidex] Starting full catalog sync (Anime, Manga, Manhwa, Novels)...');
+  console.log('[Omnidex] Starting comprehensive global catalog sync...');
 
-  // 1. Fetch Trending Anime, Manga & Manhwa
+  // 1. Trending Anime, Manga & Manhwa from AniList
   const generalMedia = await fetchFromAniList({ page: 1, perPage: 50 });
   
-  // 2. Explicitly Fetch Trending Light & Web Novels
+  // 2. Official Light Novels from AniList
   const novelMedia = await fetchFromAniList({ page: 1, perPage: 35, type: 'MANGA', format: 'NOVEL' });
 
-  // 3. Known Top Web Novels with Official Royal Road & Webnovel links
-  const curatedNovels = [
+  // 3. Web Novels across Royal Road, Webnovel, and Wattpad
+  const globalCuratedWebNovels = [
     {
       id: 'rr-primal-hunter',
       source_type: 'royalroad',
@@ -100,7 +108,10 @@ async function runSync() {
       score: 9.4,
       total_units: 950,
       genres: ['Action', 'Fantasy', 'LitRPG'],
-      official_links: [{ site: 'Royal Road', url: 'https://www.royalroad.com/fiction/36049/the-primal-hunter' }],
+      official_links: [
+        { site: 'Royal Road', url: 'https://www.royalroad.com/fiction/36049/the-primal-hunter' },
+        { site: 'Amazon', url: 'https://www.amazon.com/dp/B09MV3GMT4' }
+      ],
       updated_at: new Date().toISOString(),
     },
     {
@@ -118,7 +129,10 @@ async function runSync() {
       score: 9.3,
       total_units: 1200,
       genres: ['Action', 'Cultivation', 'LitRPG'],
-      official_links: [{ site: 'Royal Road', url: 'https://www.royalroad.com/fiction/24709/defiance-of-the-fall' }],
+      official_links: [
+        { site: 'Royal Road', url: 'https://www.royalroad.com/fiction/24709/defiance-of-the-fall' },
+        { site: 'Amazon', url: 'https://www.amazon.com/dp/B09168R6KM' }
+      ],
       updated_at: new Date().toISOString(),
     },
     {
@@ -136,7 +150,9 @@ async function runSync() {
       score: 9.7,
       total_units: 1750,
       genres: ['Dark Fantasy', 'Mystery', 'Supernatural'],
-      official_links: [{ site: 'Webnovel', url: 'https://www.webnovel.com/book/shadow-slave_22166657605769005' }],
+      official_links: [
+        { site: 'Webnovel', url: 'https://www.webnovel.com/book/shadow-slave_22166657605769005' }
+      ],
       updated_at: new Date().toISOString(),
     },
     {
@@ -144,7 +160,7 @@ async function runSync() {
       source_type: 'webnovel',
       media_type: 'novel',
       slug: 'lord-of-mysteries',
-      title_primary: 'Lord of Mysteries',
+      title_primary: 'Lord of the Mysteries',
       title_secondary: 'Cuttlefish That Loves Diving',
       cover_url: 'https://images.unsplash.com/photo-1514539079130-25950c84af65?w=600&q=80',
       banner_url: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1200&q=80',
@@ -154,7 +170,50 @@ async function runSync() {
       score: 9.8,
       total_units: 1432,
       genres: ['Steampunk', 'Mystery', 'Fantasy'],
-      official_links: [{ site: 'Webnovel', url: 'https://www.webnovel.com/book/lord-of-mysteries_11036087005398705' }],
+      official_links: [
+        { site: 'Webnovel', url: 'https://www.webnovel.com/book/lord-of-mysteries_11036087005398705' }
+      ],
+      updated_at: new Date().toISOString(),
+    },
+    {
+      id: 'wp-lore-olympus',
+      source_type: 'webtoon',
+      media_type: 'manhwa',
+      slug: 'lore-olympus',
+      title_primary: 'Lore Olympus',
+      title_secondary: 'Rachel Smythe',
+      cover_url: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&q=80',
+      banner_url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1200&q=80',
+      synopsis: 'Witness what the gods do after dark in this stylish and romantic modern retelling of the taking of Persephone.',
+      status: 'completed',
+      format: 'WEBTOON',
+      score: 8.9,
+      total_units: 280,
+      genres: ['Romance', 'Drama', 'Mythology'],
+      official_links: [
+        { site: 'WEBTOON', url: 'https://www.webtoons.com/en/romance/lore-olympus/list?title_no=1320' },
+        { site: 'Wattpad', url: 'https://www.wattpad.com' }
+      ],
+      updated_at: new Date().toISOString(),
+    },
+    {
+      id: 'rr-mother-of-learning',
+      source_type: 'royalroad',
+      media_type: 'novel',
+      slug: 'mother-of-learning',
+      title_primary: 'Mother of Learning',
+      title_secondary: 'nobody103',
+      cover_url: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=600&q=80',
+      banner_url: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1200&q=80',
+      synopsis: 'Zorian is a teenage mage of humble birth and slightly above-average skill, thrown into a repeating month-long time loop.',
+      status: 'completed',
+      format: 'WEB NOVEL',
+      score: 9.6,
+      total_units: 108,
+      genres: ['Fantasy', 'Time Loop', 'Mystery'],
+      official_links: [
+        { site: 'Royal Road', url: 'https://www.royalroad.com/fiction/21220/mother-of-learning' }
+      ],
       updated_at: new Date().toISOString(),
     }
   ];
@@ -184,16 +243,16 @@ async function runSync() {
     };
   });
 
-  const finalRows = [...curatedNovels, ...upsertRows];
+  const finalRows = [...globalCuratedWebNovels, ...upsertRows];
 
   const { error } = await supabase
     .from('media_catalog')
     .upsert(finalRows, { onConflict: 'id' });
 
   if (error) {
-    console.error('[Omnidex] Supabase error:', error.message);
+    console.error('[Omnidex] Supabase upsert error:', error.message);
   } else {
-    console.log(`[Omnidex] Synchronized successfully (${finalRows.length} total entries, including novels).`);
+    console.log(`[Omnidex] Successfully indexed ${finalRows.length} titles across global platforms.`);
   }
 }
 
