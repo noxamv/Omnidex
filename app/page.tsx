@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase';
 import Spotlight from '../components/Spotlight';
-import { Star, Check, Link2, Bookmark } from 'lucide-react';
+import { Star, Check, Link2 } from 'lucide-react';
 
 export default function HomePage({
   searchParams,
@@ -92,7 +92,7 @@ export default function HomePage({
   const spotlightList = items.slice(0, 7);
   const currentSpotlight = spotlightList[spotlightIndex] || items[0];
 
-  // Discovery Shelves
+  // Shelves
   const trendingSeries = items.slice(0, 15);
   const popularSeries = [...items].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 15);
   const latestReleases = [...items].reverse().slice(0, 15);
@@ -154,7 +154,7 @@ export default function HomePage({
             >
               <div className="w-full aspect-[2/3] relative rounded-xl overflow-hidden bg-slate-900 border border-slate-800 group-hover:border-indigo-500/60 transition duration-300 shadow-md">
                 <img
-                  src={item.cover_url || '/placeholder.png'}
+                  src={item.cover_url || '/placeholder.svg'}
                   alt={item.title_primary}
                   className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                   loading="lazy"
@@ -191,7 +191,6 @@ export default function HomePage({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-3">
-      
       {/* 1. MangaFlow Spotlight Hero */}
       {currentSpotlight && (
         <Spotlight
@@ -206,7 +205,6 @@ export default function HomePage({
       <div className="flex items-center justify-between bg-[#0e121b] border border-slate-800/80 rounded-2xl px-3.5 py-2 mb-4 shadow-sm">
         <span className="text-[11px] font-bold text-slate-400">Share Omnidex:</span>
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Facebook */}
           <button
             onClick={() => handleShare('facebook')}
             aria-label="Share on Facebook"
@@ -217,7 +215,6 @@ export default function HomePage({
             </svg>
           </button>
 
-          {/* X (Twitter) */}
           <button
             onClick={() => handleShare('twitter')}
             aria-label="Share on X"
@@ -228,7 +225,6 @@ export default function HomePage({
             </svg>
           </button>
 
-          {/* WhatsApp */}
           <button
             onClick={() => handleShare('whatsapp')}
             aria-label="Share on WhatsApp"
@@ -239,7 +235,6 @@ export default function HomePage({
             </svg>
           </button>
 
-          {/* Telegram */}
           <button
             onClick={() => handleShare('telegram')}
             aria-label="Share on Telegram"
@@ -250,7 +245,6 @@ export default function HomePage({
             </svg>
           </button>
 
-          {/* Reddit */}
           <button
             onClick={() => handleShare('reddit')}
             aria-label="Share on Reddit"
@@ -261,7 +255,6 @@ export default function HomePage({
             </svg>
           </button>
 
-          {/* Copy Link */}
           <button
             onClick={() => handleShare('copy')}
             aria-label="Copy link"
@@ -275,7 +268,7 @@ export default function HomePage({
       {/* 3. Followed Series Shelf (Below Share Bar, Above Trending) */}
       {followingItems.length > 0 && renderHorizontalShelf('Following Series', followingItems, true)}
 
-      {/* 4. Strict Order Category Filter Bar */}
+      {/* 4. Category Filter Bar (Strict Order) */}
       <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-2 mb-4 justify-between sm:justify-start">
         {categories.map((cat) => (
           <Link
@@ -293,7 +286,7 @@ export default function HomePage({
         ))}
       </div>
 
-      {/* 5. Trending and Discovery Shelves */}
+      {/* 5. Trending & Discovery Shelves */}
       {loading ? (
         <div className="py-20 text-center text-slate-500 text-xs">Loading titles...</div>
       ) : (
