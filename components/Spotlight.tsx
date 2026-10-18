@@ -18,7 +18,6 @@ export default function Spotlight({
 
   return (
     <div className="relative w-full rounded-2xl overflow-hidden bg-gradient-to-br from-[#121624] via-[#0d101a] to-[#090c14] border border-slate-800/80 p-4 sm:p-5 mb-3.5 shadow-xl min-h-[200px] sm:min-h-[215px] flex flex-col justify-between">
-      {/* Background Soft Glow */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <img
           src={item.banner_url || item.cover_url}
@@ -29,9 +28,7 @@ export default function Spotlight({
       </div>
 
       <div className="relative z-10 flex items-center justify-between gap-4 flex-1">
-        {/* Left Information */}
         <div className="flex-1 min-w-0 flex flex-col justify-between h-full py-0.5 space-y-2">
-          {/* Top Meta: Side-by-side badges */}
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-black tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
               SPOTLIGHT #{index + 1}
@@ -41,7 +38,6 @@ export default function Spotlight({
             </span>
           </div>
 
-          {/* Title & Synopsis */}
           <div className="space-y-1">
             <Link href={`/series/${item.id}`} className="block">
               <h1 className="text-base sm:text-xl font-black text-white hover:text-indigo-400 transition truncate leading-snug">
@@ -54,7 +50,6 @@ export default function Spotlight({
             </p>
           </div>
 
-          {/* Bottom Controls: Button on left, dots on right */}
           <div className="pt-2 flex items-center justify-between">
             <Link
               href={`/series/${item.id}`}
@@ -81,7 +76,6 @@ export default function Spotlight({
           </div>
         </div>
 
-        {/* Right Cover Image */}
         <Link
           href={`/series/${item.id}`}
           className="w-24 sm:w-32 aspect-[2/3] flex-shrink-0 rounded-xl overflow-hidden shadow-2xl border border-slate-700/60 bg-slate-900 group"
