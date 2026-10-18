@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
 import { 
   ArrowLeft, ExternalLink, Star, Plus, Minus, Bookmark, 
-  Globe, ChevronDown, ChevronUp, Flag, X 
+  Globe, ChevronDown, ChevronUp, Flag, X, CheckCheck 
 } from 'lucide-react';
 
 const PLATFORM_LANGUAGES: Record<string, string> = {
@@ -57,7 +57,6 @@ export default function SeriesDetailPage() {
   const [reportSubmitted, setReportSubmitted] = useState(false);
 
   useEffect(() => {
-    // Read user step preference
     const savedStep = localStorage.getItem('omnidex_step_increment');
     if (savedStep) setStepIncrement(parseInt(savedStep, 10) || 1);
 
@@ -92,7 +91,6 @@ export default function SeriesDetailPage() {
             setIsFollowing(trackData.is_following ?? true);
           }
         } else {
-          // Robust LocalStorage Guest Library Check
           try {
             const guestLibrary = JSON.parse(localStorage.getItem('omnidex_guest_library') || '[]');
             const local = guestLibrary.find((g: any) => g.id === data.id);
@@ -129,10 +127,18 @@ export default function SeriesDetailPage() {
     } catch (e) {}
   };
 
+  // Ceiling clamp logic
   const handleProgressChange = async (newVal: number) => {
-    const ceiling = series?.total_units && series.total_units > 0 ? series.total_units : 99999;
+    const totalUnits = series?.total_units || 0;
+    const ceiling = totalUnits > 0 ? totalUnits : 99999;
+    
+    // Strict clamp
     const finalVal = Math.min(Math.max(0, newVal), ceiling);
     setProgress(finalVal);
+
+    if (totalUnits > 0 && newVal >= totalUnits) {
+      showToast(`Reached total limit (${totalUnits} ${series.media_type === 'anime' ? 'episodes' : 'chapters'})`);
+    }
 
     if (user) {
       await supabase.from('user_tracker').upsert({
@@ -216,7 +222,7 @@ export default function SeriesDetailPage() {
     );
   }
 
-  // Deduplicate official links by normalized URL and site name
+  // Deduplicate official sources by URL
   const rawLinks = (series.official_links as any[]) || [];
   const uniqueMap = new Map();
   rawLinks.forEach((src) => {
@@ -226,6 +232,7 @@ export default function SeriesDetailPage() {
   });
   const officialLinks = Array.from(uniqueMap.values());
   const totalUnits = series.total_units || 0;
+  const isAtLimit = totalUnits > 0 && progress >= totalUnits;
 
   return (
     <div className="min-h-screen bg-[#07090e] pb-20">
@@ -313,7 +320,7 @@ export default function SeriesDetailPage() {
           </button>
         </div>
 
-        {/* Progress Tracker */}
+        {/* Progress Tracker with Strict Limit & Unit Counter */}
         <div className="bg-[#0e121b] p-4 rounded-xl border border-slate-800 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-300">Track Progress</h2>
@@ -331,9 +338,16 @@ export default function SeriesDetailPage() {
           </div>
 
           <div className="flex items-center justify-between bg-[#111622] px-3.5 py-2.5 rounded-xl border border-slate-800">
-            <span className="text-xs font-bold text-slate-300">
-              {series.media_type === 'anime' ? 'Episodes Watched:' : 'Chapters Read:'}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-300">
+                {series.media_type === 'anime' ? 'Episodes Watched:' : 'Chapters Read:'}
+              </span>
+              {isAtLimit && (
+                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-0.5">
+                  <CheckCheck className="w-3 h-3" /> Max
+                </span>
+              )}
+            </div>
 
             <div className="flex items-center gap-2">
               <button
@@ -359,7 +373,7 @@ export default function SeriesDetailPage() {
               ) : (
                 <button
                   onClick={() => setShowNumberInput(true)}
-                  className="w-14 text-center text-sm font-black text-indigo-400 hover:underline"
+                  className={`w-16 text-center text-sm font-black hover:underline ${isAtLimit ? 'text-emerald-400 font-extrabold' : 'text-indigo-400'}`}
                 >
                   {progress} {totalUnits > 0 ? `/ ${totalUnits}` : ''}
                 </button>
@@ -367,7 +381,12 @@ export default function SeriesDetailPage() {
 
               <button
                 onClick={() => handleProgressChange(progress + stepIncrement)}
-                className="p-1 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500"
+                disabled={isAtLimit}
+                className={`p-1 rounded-lg text-white transition ${
+                  isAtLimit 
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
+                    : 'bg-indigo-600 hover:bg-indigo-500'
+                }`}
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
