@@ -6,59 +6,50 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabase';
 import { 
-  Menu, Search, Bell, User, X, LogIn, LogOut, Mail, 
-  CheckCircle2, Download, ChevronDown, ChevronRight, 
+  Menu, Search, Bell, X, LogIn, LogOut, Mail, 
+  CheckCircle2, Download, ChevronDown, 
   Bookmark, SlidersHorizontal, Settings2, RefreshCw, 
-  Check, FileDown, Upload
+  Upload, FileDown
 } from 'lucide-react';
 
-// 30 Iconic Anime, Manga, Manhwa, Manhua, and Novel Characters
 export const AVATAR_CHARACTERS = [
   // Manhwa & Webtoons
-  { id: 'sjw', name: 'Sung Jin-woo (Solo Leveling)', url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=150&q=80' },
-  { id: 'kdj', name: 'Kim Dokja (Omniscient Reader)', url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=150&q=80' },
-  { id: 'yjh', name: 'Yoo Joonghyuk (Omniscient Reader)', url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=150&q=80' },
-  { id: 'lloyd', name: 'Lloyd Frontera (Estate Developer)', url: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=150&q=80' },
-  { id: 'arthur', name: 'Arthur Leywin (TBATE)', url: 'https://images.unsplash.com/photo-1514539079130-25950c84af65?w=150&q=80' },
-  { id: 'cadan', name: 'Cadis Etrama Di Raizel (Noblesse)', url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=150&q=80' },
-  { id: 'bam', name: 'Twenty-Fifth Bam (Tower of God)', url: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=150&q=80' },
-  { id: 'cheong', name: 'Chung Myung (Return of Mount Hua)', url: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=150&q=80' },
-  { id: 'kayden', name: 'Kayden Break (Eleceed)', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&q=80' },
+  { id: 'sjw', name: 'Sung Jin-woo', url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=150&q=80' },
+  { id: 'kdj', name: 'Kim Dokja', url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=150&q=80' },
+  { id: 'yjh', name: 'Yoo Joonghyuk', url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=150&q=80' },
+  { id: 'lloyd', name: 'Lloyd Frontera', url: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=150&q=80' },
+  { id: 'arthur', name: 'Arthur Leywin', url: 'https://images.unsplash.com/photo-1514539079130-25950c84af65?w=150&q=80' },
+  { id: 'cadan', name: 'Cadis Etrama', url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=150&q=80' },
+  { id: 'bam', name: 'Twenty-Fifth Bam', url: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=150&q=80' },
+  { id: 'cheong', name: 'Chung Myung', url: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=150&q=80' },
+  { id: 'kayden', name: 'Kayden Break', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&q=80' },
 
-  // Web Novels & Light Novels
-  { id: 'klein', name: 'Klein Moretti (Lord of Mysteries)', url: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=150&q=80' },
-  { id: 'sunny', name: 'Sunny (Shadow Slave)', url: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=150&q=80' },
-  { id: 'zorian', name: 'Zorian Kazinski (Mother of Learning)', url: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=150&q=80' },
-  { id: 'zac', name: 'Zac Atwood (Defiance of the Fall)', url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=150&q=80' },
-  { id: 'rimuru', name: 'Rimuru Tempest (Slime Isekai)', url: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=150&q=80' },
-  { id: 'subaru', name: 'Natsuki Subaru (Re:Zero)', url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=150&q=80' },
-  { id: 'shadow', name: 'Cid Kagenou (Eminence in Shadow)', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&q=80' },
-  { id: 'rudeus', name: 'Rudeus Greyrat (Mushoku Tensei)', url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=150&q=80' },
+  // Novels
+  { id: 'klein', name: 'Klein Moretti', url: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=150&q=80' },
+  { id: 'sunny', name: 'Sunny', url: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=150&q=80' },
+  { id: 'zorian', name: 'Zorian Kazinski', url: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=150&q=80' },
+  { id: 'zac', name: 'Zac Atwood', url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=150&q=80' },
+  { id: 'rimuru', name: 'Rimuru Tempest', url: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=150&q=80' },
+  { id: 'subaru', name: 'Natsuki Subaru', url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=150&q=80' },
+  { id: 'shadow', name: 'Cid Kagenou', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&q=80' },
+  { id: 'rudeus', name: 'Rudeus Greyrat', url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=150&q=80' },
 
   // Anime & Manga
-  { id: 'frieren', name: 'Frieren (Beyond Journey\'s End)', url: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=150&q=80' },
-  { id: 'gojo', name: 'Satoru Gojo (Jujutsu Kaisen)', url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=150&q=80' },
-  { id: 'luffy', name: 'Monkey D. Luffy (One Piece)', url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=150&q=80' },
-  { id: 'zoro', name: 'Roronoa Zoro (One Piece)', url: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=150&q=80' },
-  { id: 'ichigo', name: 'Ichigo Kurosaki (Bleach)', url: 'https://images.unsplash.com/photo-1514539079130-25950c84af65?w=150&q=80' },
-  { id: 'levi', name: 'Levi Ackerman (Attack on Titan)', url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=150&q=80' },
-  { id: 'denji', name: 'Denji (Chainsaw Man)', url: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=150&q=80' },
-  { id: 'tanjiro', name: 'Tanjiro Kamado (Demon Slayer)', url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=150&q=80' },
-  { id: 'edward', name: 'Edward Elric (Fullmetal Alchemist)', url: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=150&q=80' },
+  { id: 'frieren', name: 'Frieren', url: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=150&q=80' },
+  { id: 'gojo', name: 'Satoru Gojo', url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=150&q=80' },
+  { id: 'luffy', name: 'Monkey D. Luffy', url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=150&q=80' },
+  { id: 'zoro', name: 'Roronoa Zoro', url: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=150&q=80' },
+  { id: 'ichigo', name: 'Ichigo Kurosaki', url: 'https://images.unsplash.com/photo-1514539079130-25950c84af65?w=150&q=80' },
+  { id: 'levi', name: 'Levi Ackerman', url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=150&q=80' },
+  { id: 'denji', name: 'Denji', url: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=150&q=80' },
+  { id: 'tanjiro', name: 'Tanjiro Kamado', url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=150&q=80' },
+  { id: 'edward', name: 'Edward Elric', url: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=150&q=80' },
 
   // Manhua & Cultivation
-  { id: 'tangsan', name: 'Tang San (Soul Land)', url: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=150&q=80' },
-  { id: 'luozheng', name: 'Luo Zheng (Apotheosis)', url: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=150&q=80' },
-  { id: 'xiaoyan', name: 'Xiao Yan (Battle Through The Heavens)', url: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=150&q=80' },
-  { id: 'nie_li', name: 'Nie Li (Tales of Demons and Gods)', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&q=80' },
-];
-
-// 24 Full Filter Genres
-export const GENRES_LIST = [
-  'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Sci-Fi',
-  'Mystery', 'Supernatural', 'Romance', 'Psychological', 'Thriller', 'Horror',
-  'Slice of Life', 'Isekai', 'Reincarnation', 'Martial Arts', 'Cultivation', 
-  'LitRPG', 'Historical', 'School', 'Sports', 'Mecha', 'Magic', 'Post-Apocalyptic'
+  { id: 'tangsan', name: 'Tang San', url: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=150&q=80' },
+  { id: 'luozheng', name: 'Luo Zheng', url: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=150&q=80' },
+  { id: 'xiaoyan', name: 'Xiao Yan', url: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=150&q=80' },
+  { id: 'nie_li', name: 'Nie Li', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&q=80' },
 ];
 
 export default function RootLayout({
@@ -68,25 +59,20 @@ export default function RootLayout({
 }) {
   const router = useRouter();
 
-  // Scroll Header Auto-Hide States
   const [showHeader, setShowHeader] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
 
-  // Dropdown & Modal States
   const [menuOpen, setMenuOpen] = useState(false);
   const [trendingAccordion, setTrendingAccordion] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [filterModalOpen, setFilterModalOpen] = useState(false);
 
-  // Profile & Settings Modals
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
-  // User & Avatar Data
   const [user, setUser] = useState<any>(null);
   const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_CHARACTERS[0].url);
   const [displayName, setDisplayName] = useState('');
@@ -95,16 +81,26 @@ export default function RootLayout({
   const [authLoading, setAuthLoading] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
 
-  // Search Live Autocomplete
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
-  // PWA Prompt
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPwaBanner, setShowPwaBanner] = useState(false);
 
-  // Scroll Listener for smart header auto-hide
+  // Register Service Worker for PWA installation
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker
+          .register('/sw.js')
+          .then((reg) => console.log('[PWA] Service Worker active:', reg.scope))
+          .catch((err) => console.warn('[PWA] Service Worker registration failed:', err));
+      });
+    }
+  }, []);
+
+  // Header auto-hide logic on scroll
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -122,7 +118,7 @@ export default function RootLayout({
     return () => window.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
 
-  // Load User, Profile Avatar & Notifications
+  // Auth & Notifications check
   useEffect(() => {
     const savedAvatar = localStorage.getItem('omnidex_user_avatar');
     if (savedAvatar) setSelectedAvatar(savedAvatar);
@@ -173,7 +169,7 @@ export default function RootLayout({
     } catch (err) {}
   };
 
-  // Debounced live search
+  // Debounced live search autocomplete
   useEffect(() => {
     if (searchQuery.trim().length < 2) {
       setSearchResults([]);
@@ -227,6 +223,16 @@ export default function RootLayout({
     localStorage.setItem('omnidex_user_avatar', url);
   };
 
+  const handlePwaInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setShowPwaBanner(false);
+    }
+    setDeferredPrompt(null);
+  };
+
   return (
     <html lang="en">
       <head>
@@ -237,7 +243,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-[#07090e] text-slate-100 selection:bg-indigo-600 antialiased font-sans">
         
-        {/* Header Bar */}
+        {/* Navigation Bar */}
         <header
           className={`fixed top-0 left-0 right-0 z-50 h-14 bg-[#0a0d14]/95 backdrop-blur-md border-b border-slate-800/80 px-4 transition-transform duration-300 ${
             showHeader ? 'translate-y-0' : '-translate-y-full'
@@ -245,7 +251,7 @@ export default function RootLayout({
         >
           <div className="max-w-7xl h-full mx-auto flex items-center justify-between gap-3">
             
-            {/* Left: Hamburger + Logo (Omni in Indigo, dex in White) */}
+            {/* Left Hamburger + Brand */}
             <div className="flex items-center gap-2.5">
               <button
                 type="button"
@@ -262,7 +268,7 @@ export default function RootLayout({
               </Link>
             </div>
 
-            {/* Desktop Live Search */}
+            {/* Desktop Center Instant Search */}
             <div className="hidden md:block flex-1 max-w-sm mx-4 relative">
               <div className="relative">
                 <input
@@ -301,7 +307,7 @@ export default function RootLayout({
               )}
             </div>
 
-            {/* Right: Search (mobile), Notification, User / Sign In */}
+            {/* Right Header Icons */}
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
@@ -400,7 +406,6 @@ export default function RootLayout({
             <div className="fixed inset-0 bg-black/40 backdrop-blur-none" onClick={() => setMenuOpen(false)} />
             <div className="absolute top-14 left-4 w-52 bg-[#0e121b] border border-slate-800 rounded-2xl shadow-2xl p-2.5 z-10 space-y-1">
               
-              {/* 1. Home */}
               <Link
                 href="/"
                 onClick={() => setMenuOpen(false)}
@@ -409,7 +414,6 @@ export default function RootLayout({
                 <span>Home</span>
               </Link>
 
-              {/* 2. Trending Series Accordion */}
               <div>
                 <button
                   type="button"
@@ -442,15 +446,14 @@ export default function RootLayout({
                 )}
               </div>
 
-              {/* 3. Filter */}
-              <button
-                type="button"
-                onClick={() => { setFilterModalOpen(true); setMenuOpen(false); }}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-200 hover:text-white hover:bg-slate-800/80 transition"
+              <Link
+                href="/filter"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-200 hover:text-white hover:bg-slate-800/80 transition"
               >
                 <span>Filter</span>
                 <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-              </button>
+              </Link>
             </div>
           </div>
         )}
@@ -466,17 +469,14 @@ export default function RootLayout({
                 <p className="text-[10px] text-indigo-400 font-semibold truncate">{user?.email}</p>
               </div>
 
-              {/* 1. Edit Profile */}
               <button
                 type="button"
                 onClick={() => { setProfileModalOpen(true); setUserMenuOpen(false); }}
                 className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-200 hover:text-white hover:bg-slate-800/80 transition"
               >
                 <span>Edit Profile</span>
-                <User className="w-3.5 h-3.5 text-slate-500" />
               </button>
 
-              {/* 2. Library */}
               <Link
                 href="/library"
                 onClick={() => setUserMenuOpen(false)}
@@ -486,7 +486,6 @@ export default function RootLayout({
                 <Bookmark className="w-3.5 h-3.5 text-slate-500" />
               </Link>
 
-              {/* 3. Import & Export & Sync */}
               <button
                 type="button"
                 onClick={() => { setSyncModalOpen(true); setUserMenuOpen(false); }}
@@ -496,7 +495,6 @@ export default function RootLayout({
                 <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
               </button>
 
-              {/* 4. Settings */}
               <button
                 type="button"
                 onClick={() => { setSettingsModalOpen(true); setUserMenuOpen(false); }}
@@ -506,7 +504,6 @@ export default function RootLayout({
                 <Settings2 className="w-3.5 h-3.5 text-slate-500" />
               </button>
 
-              {/* 5. Log Out */}
               <div className="pt-1 border-t border-slate-800/80">
                 <button
                   type="button"
@@ -521,39 +518,29 @@ export default function RootLayout({
           </div>
         )}
 
-        {/* 20+ Genre Filter Modal */}
-        {filterModalOpen && (
+        {/* Notifications Modal */}
+        {notifOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setFilterModalOpen(false)} />
-            <div className="relative w-full max-w-md bg-[#0e121b] border border-slate-800 rounded-2xl p-5 shadow-2xl z-10 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setNotifOpen(false)} />
+            <div className="relative w-full max-w-sm bg-[#0e121b] border border-slate-800 rounded-2xl p-5 shadow-2xl z-10 space-y-3">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                 <h3 className="font-bold text-sm text-white flex items-center gap-1.5">
-                  <SlidersHorizontal className="w-4 h-4 text-indigo-400" /> Select Genre
+                  <Bell className="w-4 h-4 text-indigo-400" /> Notifications
                 </h3>
-                <button onClick={() => setFilterModalOpen(false)} className="text-slate-400 hover:text-white">
+                <button onClick={() => setNotifOpen(false)} className="text-slate-400 hover:text-white">
                   <X className="w-4 h-4" />
                 </button>
               </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
-                {GENRES_LIST.map((genre) => (
-                  <button
-                    key={genre}
-                    onClick={() => {
-                      router.push(`/?search=${encodeURIComponent(genre)}`);
-                      setFilterModalOpen(false);
-                    }}
-                    className="p-2 text-center rounded-xl bg-[#111622] hover:bg-indigo-600 text-xs font-semibold text-slate-300 hover:text-white transition border border-slate-800"
-                  >
-                    {genre}
-                  </button>
-                ))}
-              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                {user 
+                  ? "You're all caught up! New chapter and episode releases for your followed series will notify you here."
+                  : "Sign in to follow series and receive chapter alerts."}
+              </p>
             </div>
           </div>
         )}
 
-        {/* Profile & 30 Anime Character Avatar Picker Modal */}
+        {/* Profile & Avatar Picker Modal */}
         {profileModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setProfileModalOpen(false)} />
@@ -565,7 +552,6 @@ export default function RootLayout({
                 </button>
               </div>
 
-              {/* 30 Character Grid */}
               <div className="grid grid-cols-5 gap-3 pt-2">
                 {AVATAR_CHARACTERS.map((char) => (
                   <button
@@ -579,7 +565,7 @@ export default function RootLayout({
                       <img src={char.url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition" />
                     </div>
                     <span className="text-[9px] font-bold text-slate-300 mt-1 line-clamp-1 text-center">
-                      {char.name.split(' (')[0]}
+                      {char.name}
                     </span>
                   </button>
                 ))}
@@ -631,7 +617,7 @@ export default function RootLayout({
           </div>
         )}
 
-        {/* Helpful Settings Modal */}
+        {/* Settings Modal */}
         {settingsModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSettingsModalOpen(false)} />
@@ -728,6 +714,35 @@ export default function RootLayout({
                   </button>
                 </form>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* PWA Floating Bottom Pop-up Banner */}
+        {showPwaBanner && (
+          <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto bg-[#0e121b]/95 backdrop-blur-md border border-slate-800 p-3.5 rounded-2xl shadow-2xl z-50 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
+                <Download className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white">Install Omnidex App</p>
+                <p className="text-[10px] text-slate-400">Faster offline progress tracking</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handlePwaInstall}
+                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
+              >
+                Install
+              </button>
+              <button
+                onClick={() => setShowPwaBanner(false)}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}
