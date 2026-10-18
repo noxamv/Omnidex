@@ -3,19 +3,39 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
-export default function Spotlight({ item }: { item: any }) {
+export default function Spotlight({ 
+  item, 
+  index = 0, 
+  total = 7, 
+  onSelectIndex 
+}: { 
+  item: any; 
+  index?: number; 
+  total?: number; 
+  onSelectIndex?: (idx: number) => void;
+}) {
   if (!item) return null;
 
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden bg-[#0e121b] border border-slate-800/80 p-4 sm:p-5 mb-5 shadow-xl">
-      <div className="flex items-center justify-between gap-4">
+    <div className="relative w-full rounded-2xl overflow-hidden bg-gradient-to-br from-[#121624] via-[#0d101a] to-[#090c14] border border-slate-800/80 p-4 sm:p-5 mb-3.5 shadow-xl min-h-[195px] sm:min-h-[215px] flex flex-col justify-between">
+      {/* Background soft blur banner glow */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <img
+          src={item.banner_url || item.cover_url}
+          alt=""
+          className="w-full h-full object-cover filter blur-xl opacity-15 scale-110"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0d101a] via-[#0d101a]/90 to-transparent" />
+      </div>
+
+      <div className="relative z-10 flex items-center justify-between gap-4 flex-1">
         {/* Left Information */}
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black tracking-wider uppercase px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-              SPOTLIGHT #1
+            <span className="text-[10px] font-black tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+              SPOTLIGHT #{index + 1}
             </span>
-            <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+            <span className="text-[10px] font-bold tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-slate-800/80 text-slate-300">
               {item.media_type}
             </span>
           </div>
@@ -30,21 +50,37 @@ export default function Spotlight({ item }: { item: any }) {
             {item.synopsis || 'Explore official tracking and release sources on Omnidex.'}
           </p>
 
-          <div className="pt-1">
+          <div className="pt-1.5 flex items-center gap-3">
             <Link
               href={`/series/${item.id}`}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition active:scale-95"
             >
-              <span>Read / Track Now</span>
+              <span>Read Now</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
+
+            {/* Switcher Indicator Dots */}
+            {onSelectIndex && (
+              <div className="flex items-center gap-1.5 pl-1">
+                {Array.from({ length: total }).map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => onSelectIndex(idx)}
+                    aria-label={`Jump to spotlight slide ${idx + 1}`}
+                    className={`h-1.5 rounded-full transition-all ${
+                      index === idx ? 'w-5 bg-indigo-500' : 'w-1.5 bg-slate-700 hover:bg-slate-500'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right Cover Image (Exact MangaFlow style) */}
+        {/* Right Cover Image (Exact MangaFlow style with 2:3 aspect) */}
         <Link
           href={`/series/${item.id}`}
-          className="w-20 sm:w-28 aspect-[2/3] flex-shrink-0 rounded-xl overflow-hidden shadow-xl border border-slate-700/60 bg-slate-900 group"
+          className="w-24 sm:w-32 aspect-[2/3] flex-shrink-0 rounded-xl overflow-hidden shadow-2xl border border-slate-700/60 bg-slate-900 group"
         >
           <img
             src={item.cover_url}
