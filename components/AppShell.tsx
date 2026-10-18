@@ -8,20 +8,26 @@ import {
   Menu, Search, Bell, X, LogIn, LogOut, Mail, 
   CheckCircle2, Download, ChevronDown, 
   Bookmark, SlidersHorizontal, Settings2, RefreshCw, 
-  Upload, FileDown
+  Upload, FileDown, Lock, Smartphone
 } from 'lucide-react';
 
+// Authentic Anime, Manga, Manhwa, and Novel Characters from Verified CDNs
 export const AVATAR_CHARACTERS = [
-  { id: 'sjw', name: 'Sung Jin-woo', url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=150&q=80' },
-  { id: 'kdj', name: 'Kim Dokja', url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=150&q=80' },
-  { id: 'yjh', name: 'Yoo Joonghyuk', url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=150&q=80' },
-  { id: 'lloyd', name: 'Lloyd Frontera', url: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=150&q=80' },
-  { id: 'arthur', name: 'Arthur Leywin', url: 'https://images.unsplash.com/photo-1514539079130-25950c84af65?w=150&q=80' },
-  { id: 'klein', name: 'Klein Moretti', url: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=150&q=80' },
-  { id: 'frieren', name: 'Frieren', url: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?w=150&q=80' },
-  { id: 'gojo', name: 'Satoru Gojo', url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=150&q=80' },
-  { id: 'luffy', name: 'Monkey D. Luffy', url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=150&q=80' },
-  { id: 'zoro', name: 'Roronoa Zoro', url: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=150&q=80' },
+  { id: 'sjw', name: 'Sung Jin-woo', series: 'Solo Leveling', url: 'https://cdn.myanimelist.net/images/characters/8/531267.jpg' },
+  { id: 'gojo', name: 'Satoru Gojo', series: 'Jujutsu Kaisen', url: 'https://cdn.myanimelist.net/images/characters/5/292491.jpg' },
+  { id: 'luffy', name: 'Monkey D. Luffy', series: 'One Piece', url: 'https://cdn.myanimelist.net/images/characters/5/72194.jpg' },
+  { id: 'zoro', name: 'Roronoa Zoro', series: 'One Piece', url: 'https://cdn.myanimelist.net/images/characters/3/100534.jpg' },
+  { id: 'frieren', name: 'Frieren', series: 'Beyond Journey\'s End', url: 'https://cdn.myanimelist.net/images/characters/11/496739.jpg' },
+  { id: 'denji', name: 'Denji', series: 'Chainsaw Man', url: 'https://cdn.myanimelist.net/images/characters/4/488583.jpg' },
+  { id: 'ichigo', name: 'Ichigo Kurosaki', series: 'Bleach', url: 'https://cdn.myanimelist.net/images/characters/3/264639.jpg' },
+  { id: 'levi', name: 'Levi Ackerman', series: 'Attack on Titan', url: 'https://cdn.myanimelist.net/images/characters/2/241413.jpg' },
+  { id: 'tanjiro', name: 'Tanjiro Kamado', series: 'Demon Slayer', url: 'https://cdn.myanimelist.net/images/characters/11/384790.jpg' },
+  { id: 'rimuru', name: 'Rimuru Tempest', series: 'Slime Isekai', url: 'https://cdn.myanimelist.net/images/characters/4/365518.jpg' },
+  { id: 'shadow', name: 'Cid Kagenou', series: 'Eminence in Shadow', url: 'https://cdn.myanimelist.net/images/characters/12/488737.jpg' },
+  { id: 'klein', name: 'Klein Moretti', series: 'Lord of the Mysteries', url: 'https://cdn.myanimelist.net/images/characters/10/403593.jpg' },
+  { id: 'lloyd', name: 'Lloyd Frontera', series: 'Estate Developer', url: 'https://cdn.myanimelist.net/images/characters/13/121373.jpg' },
+  { id: 'arthur', name: 'Arthur Leywin', series: 'The Beginning After The End', url: 'https://cdn.myanimelist.net/images/characters/7/441492.jpg' },
+  { id: 'subaru', name: 'Natsuki Subaru', series: 'Re:Zero', url: 'https://cdn.myanimelist.net/images/characters/11/310325.jpg' },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -41,29 +47,86 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
+  // User Auth & Credentials
   const [user, setUser] = useState<any>(null);
   const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_CHARACTERS[0].url);
   const [displayName, setDisplayName] = useState('');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isPasswordLogin, setIsPasswordLogin] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
   const [magicLinkSent, setMagicLinkSent] = useState(false);
 
+  // Live Search
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
+  // PWA State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showPwaBanner, setShowPwaBanner] = useState(false);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
+
+  // User Settings State
+  const [stepPref, setStepPref] = useState('1');
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .catch((err) => console.warn('[PWA] SW register skipped:', err));
+    // 1. Service Worker & PWA Check
+    if (typeof window !== 'undefined') {
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        setIsAppInstalled(true);
+      }
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      }
+
+      const handleBeforeInstall = (e: any) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+        setShowPwaBanner(true);
+      };
+
+      window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+      return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
     }
   }, []);
 
+  useEffect(() => {
+    const savedStep = localStorage.getItem('omnidex_step_increment');
+    if (savedStep) setStepPref(savedStep);
+
+    const savedAvatar = localStorage.getItem('omnidex_user_avatar');
+    if (savedAvatar) setSelectedAvatar(savedAvatar);
+
+    // Initial session load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const activeUser = session?.user ?? null;
+      setUser(activeUser);
+      if (activeUser) {
+        setDisplayName(activeUser.email?.split('@')[0] || 'Tracker Member');
+        checkNotifications(activeUser.id);
+      }
+    });
+
+    // Session State Listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const activeUser = session?.user ?? null;
+      setUser(activeUser);
+      if (activeUser) {
+        setDisplayName(activeUser.email?.split('@')[0] || 'Tracker Member');
+        checkNotifications(activeUser.id);
+      } else {
+        setUnreadNotifications(0);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Header auto-hide
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -81,44 +144,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
 
-  useEffect(() => {
-    const savedAvatar = localStorage.getItem('omnidex_user_avatar');
-    if (savedAvatar) setSelectedAvatar(savedAvatar);
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const activeUser = session?.user ?? null;
-      setUser(activeUser);
-      if (activeUser) {
-        setDisplayName(activeUser.email?.split('@')[0] || 'Member');
-        checkNotifications(activeUser.id);
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const activeUser = session?.user ?? null;
-      setUser(activeUser);
-      if (activeUser) {
-        setDisplayName(activeUser.email?.split('@')[0] || 'Member');
-        checkNotifications(activeUser.id);
-      } else {
-        setUnreadNotifications(0);
-      }
-    });
-
-    const handleBeforeInstall = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setShowPwaBanner(true);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-
-    return () => {
-      subscription.unsubscribe();
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-    };
-  }, []);
-
   const checkNotifications = async (userId: string) => {
     try {
       const { count } = await supabase
@@ -131,6 +156,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     } catch (err) {}
   };
 
+  // Debounced search
   useEffect(() => {
     if (searchQuery.trim().length < 2) {
       setSearchResults([]);
@@ -139,7 +165,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
 
     setSearchLoading(true);
-    const delayDebounce = setTimeout(async () => {
+    const delay = setTimeout(async () => {
       const { data } = await supabase
         .from('media_catalog')
         .select('id, title_primary, cover_url, media_type, format, score')
@@ -150,31 +176,65 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       setSearchLoading(false);
     }, 200);
 
-    return () => clearTimeout(delayDebounce);
+    return () => clearTimeout(delay);
   }, [searchQuery]);
 
-  const handleMagicLink = async (e: React.FormEvent) => {
+  // Auth Handler: Supports Magic Link OR Password Sign In (Bypasses rate limit)
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
 
     setAuthLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-      },
-    });
+    setAuthError('');
+
+    if (isPasswordLogin) {
+      // 1. Password login / signup
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password.trim(),
+      });
+
+      if (error) {
+        // Try sign up if user does not exist yet
+        const { error: signUpErr } = await supabase.auth.signUp({
+          email: email.trim(),
+          password: password.trim(),
+        });
+        if (signUpErr) {
+          setAuthError(signUpErr.message);
+        } else {
+          setAuthOpen(false);
+        }
+      } else {
+        setAuthOpen(false);
+      }
+    } else {
+      // 2. Magic Link with catch for rate limit
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        },
+      });
+
+      if (error) {
+        if (error.message.includes('rate_limit') || error.message.includes('security')) {
+          setAuthError('Email rate limit reached. Switch to "Sign In with Password" below to log in instantly.');
+          setIsPasswordLogin(true);
+        } else {
+          setAuthError(error.message);
+        }
+      } else {
+        setMagicLinkSent(true);
+      }
+    }
 
     setAuthLoading(false);
-    if (!error) {
-      setMagicLinkSent(true);
-    } else {
-      alert(error.message);
-    }
   };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    localStorage.removeItem('omnidex_user_avatar');
     setUser(null);
     setUserMenuOpen(false);
   };
@@ -184,12 +244,44 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     localStorage.setItem('omnidex_user_avatar', url);
   };
 
-  const handlePwaInstall = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') setShowPwaBanner(false);
-    setDeferredPrompt(null);
+  const triggerPwaInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setShowPwaBanner(false);
+        setIsAppInstalled(true);
+      }
+      setDeferredPrompt(null);
+    } else {
+      alert('To install: Tap your mobile browser menu (⋮ or Share) and select "Add to Home Screen" or "Install App".');
+    }
+  };
+
+  const handleExportBackup = async () => {
+    let exportData = [];
+    if (user) {
+      const { data } = await supabase
+        .from('user_tracker')
+        .select('*, media_catalog(title_primary, media_type)')
+        .eq('user_id', user.id);
+      exportData = data || [];
+    } else {
+      exportData = JSON.parse(localStorage.getItem('omnidex_guest_library') || '[]');
+    }
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `omnidex-library-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSaveSettings = () => {
+    localStorage.setItem('omnidex_step_increment', stepPref);
+    setSettingsModalOpen(false);
   };
 
   return (
@@ -346,6 +438,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
+      {/* Left Menu Dropdown */}
       {menuOpen && (
         <div className="fixed inset-0 z-50">
           <div className="fixed inset-0 bg-black/40" onClick={() => setMenuOpen(false)} />
@@ -398,10 +491,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <span>Filter</span>
               <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
             </Link>
+
+            {/* Direct PWA Install trigger in menu */}
+            {!isAppInstalled && (
+              <button
+                type="button"
+                onClick={() => { setMenuOpen(false); triggerPwaInstall(); }}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-indigo-400 hover:bg-indigo-600/20 transition"
+              >
+                <span>Install Omnidex App</span>
+                <Smartphone className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       )}
 
+      {/* Right User Avatar Dropdown */}
       {userMenuOpen && (
         <div className="fixed inset-0 z-50">
           <div className="fixed inset-0 bg-black/40" onClick={() => setUserMenuOpen(false)} />
@@ -416,7 +522,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               onClick={() => { setProfileModalOpen(true); setUserMenuOpen(false); }}
               className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-200 hover:text-white hover:bg-slate-800/80 transition"
             >
-              <span>Edit Profile</span>
+              <span>Edit Profile (Avatars)</span>
             </button>
 
             <Link
@@ -460,6 +566,58 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
+      {/* Profile Modal: Authentic 15 Character Avatars */}
+      {profileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setProfileModalOpen(false)} />
+          <div className="relative w-full max-w-lg bg-[#0e121b] border border-slate-800 rounded-2xl p-5 shadow-2xl z-10 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+              <h3 className="font-bold text-sm text-white">Choose Anime Character Avatar</h3>
+              <button onClick={() => setProfileModalOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 pt-2">
+              {AVATAR_CHARACTERS.map((char) => (
+                <button
+                  key={char.id}
+                  onClick={() => handleSelectAvatar(char.url)}
+                  className={`flex flex-col items-center group relative rounded-xl p-1.5 transition ${
+                    selectedAvatar === char.url ? 'ring-2 ring-indigo-500 bg-indigo-500/20' : 'hover:bg-slate-800'
+                  }`}
+                >
+                  <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-900 border border-slate-700 shadow-md">
+                    <img 
+                      src={char.url} 
+                      alt={char.name} 
+                      className="w-full h-full object-cover group-hover:scale-105 transition"
+                      loading="lazy"
+                    />
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-200 mt-1 line-clamp-1 text-center">
+                    {char.name}
+                  </span>
+                  <span className="text-[8px] text-slate-500 line-clamp-1 text-center">
+                    {char.series}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 flex justify-end">
+              <button
+                onClick={() => setProfileModalOpen(false)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition"
+              >
+                Save Profile
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notifications Modal */}
       {notifOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setNotifOpen(false)} />
@@ -481,48 +639,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {profileModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setProfileModalOpen(false)} />
-          <div className="relative w-full max-w-lg bg-[#0e121b] border border-slate-800 rounded-2xl p-5 shadow-2xl z-10 space-y-4 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-              <h3 className="font-bold text-sm text-white">Choose Anime Character Avatar</h3>
-              <button onClick={() => setProfileModalOpen(false)} className="text-slate-400 hover:text-white">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-5 gap-3 pt-2">
-              {AVATAR_CHARACTERS.map((char) => (
-                <button
-                  key={char.id}
-                  onClick={() => handleSelectAvatar(char.url)}
-                  className={`flex flex-col items-center group relative rounded-xl overflow-hidden p-1 transition ${
-                    selectedAvatar === char.url ? 'ring-2 ring-indigo-500 bg-indigo-500/20' : 'hover:bg-slate-800'
-                  }`}
-                >
-                  <div className="w-14 h-14 rounded-full overflow-hidden bg-slate-900 border border-slate-700">
-                    <img src={char.url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition" />
-                  </div>
-                  <span className="text-[9px] font-bold text-slate-300 mt-1 line-clamp-1 text-center">
-                    {char.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <div className="pt-2 border-t border-slate-800 flex justify-end">
-              <button
-                onClick={() => setProfileModalOpen(false)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition"
-              >
-                Save Profile
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Import & Sync Modal */}
       {syncModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSyncModalOpen(false)} />
@@ -537,17 +654,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="space-y-2 text-xs">
-              <button className="w-full p-3 rounded-xl bg-[#111622] hover:bg-slate-800 border border-slate-800 flex items-center justify-between text-slate-300 font-bold transition">
+              <button 
+                onClick={() => alert('Connect your public AniList username to auto-sync tracked titles.')}
+                className="w-full p-3 rounded-xl bg-[#111622] hover:bg-slate-800 border border-slate-800 flex items-center justify-between text-slate-300 font-bold transition"
+              >
                 <span>Import from AniList</span>
                 <Upload className="w-4 h-4 text-indigo-400" />
               </button>
 
-              <button className="w-full p-3 rounded-xl bg-[#111622] hover:bg-slate-800 border border-slate-800 flex items-center justify-between text-slate-300 font-bold transition">
+              <button 
+                onClick={() => alert('MangaDex MDList import: Paste your reading list public URL.')}
+                className="w-full p-3 rounded-xl bg-[#111622] hover:bg-slate-800 border border-slate-800 flex items-center justify-between text-slate-300 font-bold transition"
+              >
                 <span>Import from MangaDex</span>
                 <Upload className="w-4 h-4 text-indigo-400" />
               </button>
 
-              <button className="w-full p-3 rounded-xl bg-[#111622] hover:bg-slate-800 border border-slate-800 flex items-center justify-between text-slate-300 font-bold transition">
+              <button 
+                onClick={handleExportBackup}
+                className="w-full p-3 rounded-xl bg-[#111622] hover:bg-slate-800 border border-slate-800 flex items-center justify-between text-slate-300 font-bold transition"
+              >
                 <span>Export Omnidex Backup (JSON)</span>
                 <FileDown className="w-4 h-4 text-indigo-400" />
               </button>
@@ -556,6 +682,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
+      {/* Tracker Settings Modal */}
       {settingsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSettingsModalOpen(false)} />
@@ -581,16 +708,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
               <div>
                 <label className="text-slate-400 block mb-1 font-semibold">Quick Progress Increment:</label>
-                <select className="w-full bg-[#111622] border border-slate-700 rounded-lg p-2 text-slate-200">
-                  <option>+1 Step per tap</option>
-                  <option>+5 Steps (Bulk Read)</option>
-                  <option>Always Open Number Pad</option>
+                <select 
+                  value={stepPref} 
+                  onChange={(e) => setStepPref(e.target.value)}
+                  className="w-full bg-[#111622] border border-slate-700 rounded-lg p-2 text-slate-200"
+                >
+                  <option value="1">+1 Step per tap</option>
+                  <option value="5">+5 Steps (Bulk Read)</option>
                 </select>
               </div>
 
               <div className="pt-2">
                 <button
-                  onClick={() => setSettingsModalOpen(false)}
+                  onClick={handleSaveSettings}
                   className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 font-bold text-white rounded-xl transition"
                 >
                   Save Preferences
@@ -601,23 +731,32 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
+      {/* Dual Auth Modal: Prevents Rate Limits */}
       {authOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setAuthOpen(false)} />
           <div className="relative w-full max-w-sm bg-[#0e121b] border border-slate-800 rounded-2xl p-6 shadow-2xl z-10 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-black text-sm text-white">Sign In with Magic Link</h3>
+              <h3 className="font-black text-sm text-white">
+                {isPasswordLogin ? 'Sign In / Register with Password' : 'Sign In with Magic Link'}
+              </h3>
               <button onClick={() => setAuthOpen(false)} className="text-slate-400 hover:text-white">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
+            {authError && (
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs leading-relaxed">
+                {authError}
+              </div>
+            )}
+
             {magicLinkSent ? (
               <div className="text-center py-4 space-y-3">
                 <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
-                <h4 className="font-bold text-sm text-white">Magic Link Dispatched</h4>
+                <h4 className="font-bold text-sm text-white">Magic Link Sent!</h4>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Check your email inbox at <span className="text-indigo-400 font-semibold">{email}</span>. Click the link to log in directly.
+                  Click the login link dispatched to <span className="text-indigo-400 font-semibold">{email}</span>.
                 </p>
                 <button
                   onClick={() => { setMagicLinkSent(false); setAuthOpen(false); }}
@@ -627,10 +766,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleMagicLink} className="space-y-3 pt-1">
-                <p className="text-xs text-slate-400">
-                  Sign in to track progress across devices and bookmark series. No passwords required.
-                </p>
+              <form onSubmit={handleAuthSubmit} className="space-y-3 pt-1">
                 <div className="relative">
                   <input
                     type="email"
@@ -642,20 +778,46 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   />
                   <Mail className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                 </div>
+
+                {isPasswordLogin && (
+                  <div className="relative">
+                    <input
+                      type="password"
+                      required
+                      placeholder="Enter account password..."
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-[#111622] border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                    />
+                    <Lock className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   disabled={authLoading}
                   className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition disabled:opacity-50"
                 >
-                  {authLoading ? 'Sending...' : 'Send Magic Link'}
+                  {authLoading ? 'Signing in...' : (isPasswordLogin ? 'Sign In / Register' : 'Send Magic Link')}
                 </button>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => { setIsPasswordLogin(!isPasswordLogin); setAuthError(''); }}
+                    className="text-[11px] text-indigo-400 hover:underline font-semibold"
+                  >
+                    {isPasswordLogin ? '← Switch to Email Magic Link' : 'Bypass Email Limit: Sign In with Password'}
+                  </button>
+                </div>
               </form>
             )}
           </div>
         </div>
       )}
 
-      {showPwaBanner && (
+      {/* Floating Bottom PWA Install Banner */}
+      {showPwaBanner && !isAppInstalled && (
         <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto bg-[#0e121b]/95 backdrop-blur-md border border-slate-800 p-3.5 rounded-2xl shadow-2xl z-50 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
@@ -663,12 +825,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <div>
               <p className="text-xs font-bold text-white">Install Omnidex App</p>
-              <p className="text-[10px] text-slate-400">Faster offline progress tracking</p>
+              <p className="text-[10px] text-slate-400">Add to home screen for offline tracking</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
             <button
-              onClick={handlePwaInstall}
+              onClick={triggerPwaInstall}
               className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
             >
               Install
