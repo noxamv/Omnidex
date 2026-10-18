@@ -23,7 +23,7 @@ query ($page: Int, $perPage: Int, $type: MediaType, $format: MediaFormat) {
       id
       type
       format
-      title { english romaji }
+      title { english romaji native }
       coverImage { extraLarge }
       bannerImage
       description
@@ -47,8 +47,8 @@ function determineMediaType(item) {
   return 'manga';
 }
 
-function filterOfficialLinks(links) {
-  if (!Array.isArray(links)) return [];
+function filterOfficialLinks(item) {
+  const links = item.externalLinks || [];
   const officialTargets = [
     'royal road', 'webnovel', 'wattpad', 'scribble hub', 'j-novel club', 
     'yen press', 'bookwalker', 'kobo', 'amazon',
@@ -57,9 +57,33 @@ function filterOfficialLinks(links) {
     'crunchyroll', 'netflix', 'hidive', 'disney', 'hulu', 'prime video', 'youtube'
   ];
 
-  return links
+  const matched = links
     .filter(l => l && l.url && officialTargets.some(t => (l.site || '').toLowerCase().includes(t)))
     .map(l => ({ site: l.site, url: l.url }));
+
+  // Fallback Canonical Search Outbound if API provides 0 links
+  if (matched.length === 0) {
+    const title = encodeURIComponent(item.title?.english || item.title?.romaji || 'series');
+    if (item.type === 'ANIME') {
+      matched.push({ site: 'Crunchyroll', url: `https://www.crunchyroll.com/search?q=${title}` });
+    } else if (item.countryOfOrigin === 'KR' || item.format === 'MANHWA') {
+      matched.push({ site: 'WEBTOON', url: `https://www.webtoons.com/en/search?keyword=${title}` });
+    } else if (item.format === 'NOVEL') {
+      matched.push({ site: 'BookWalker', url: `https://global.bookwalker.jp/search/?word=${title}` });
+    } else {
+      matched.push({ site: 'MANGA Plus', url: `https://mangaplus.shueisha.co.jp/search_result?keyword=${title}` });
+    }
+  }
+
+  return matched;
+}
+
+function resolveSynopsis(item) {
+  if (item.description && item.description.trim().length > 10) {
+    return item.description.replace(/<[^>]*>?/gm, '');
+  }
+  const title = item.title?.english || item.title?.romaji || 'This series';
+  return `${title} is a popular ${item.format || item.type} indexed for tracking and official legal discovery on Omnidex. Follow official platforms for updates.`;
 }
 
 async function fetchFromAniList(variables) {
@@ -79,7 +103,7 @@ async function fetchFromAniList(variables) {
 }
 
 async function runSync() {
-  console.log('[Omnidex] Starting comprehensive global catalog sync...');
+  console.log('[Omnidex] Synchronizing comprehensive catalog...');
 
   const generalMedia = await fetchFromAniList({ page: 1, perPage: 50 });
   const novelMedia = await fetchFromAniList({ page: 1, perPage: 35, type: 'MANGA', format: 'NOVEL' });
@@ -212,7 +236,7 @@ async function runSync() {
 
   const allRaw = [...generalMedia, ...novelMedia];
   const upsertRows = allRaw.map((item) => {
-    const title = item.title?.english || item.title?.romaji || 'Untitled';
+    const title = item.title?.english || item.title?.romaji || item.title?.native || 'Untitled';
     const cleanSlug = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${item.id}`;
 
     return {
@@ -224,13 +248,13 @@ async function runSync() {
       title_secondary: item.title?.romaji || null,
       cover_url: item.coverImage?.extraLarge || null,
       banner_url: item.bannerImage || null,
-      synopsis: item.description ? item.description.replace(/<[^>]*>?/gm, '') : '',
+      synopsis: resolveSynopsis(item),
       status: item.status?.toLowerCase() || 'releasing',
       format: item.format || 'UNKNOWN',
       score: item.averageScore ? Number((item.averageScore / 10).toFixed(1)) : null,
       total_units: item.episodes || item.chapters || 0,
       genres: Array.isArray(item.genres) ? item.genres : [],
-      official_links: filterOfficialLinks(item.externalLinks),
+      official_links: filterOfficialLinks(item),
       updated_at: new Date().toISOString(),
     };
   });
@@ -242,9 +266,9 @@ async function runSync() {
     .upsert(finalRows, { onConflict: 'id' });
 
   if (error) {
-    console.error('[Omnidex] Supabase upsert error:', error.message);
+    console.error('[Omnidex] Upsert error:', error.message);
   } else {
-    console.log(`[Omnidex] Successfully indexed ${finalRows.length} titles across global platforms.`);
+    console.log(`[Omnidex] Successfully refreshed ${finalRows.length} catalog titles.`);
   }
 }
 
