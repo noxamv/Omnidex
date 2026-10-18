@@ -12,6 +12,7 @@ const PLATFORM_LANGUAGES: Record<string, string> = {
   crunchyroll: 'English Sub/Dub (Multi)',
   netflix: 'Multi-Language (Sub/Dub)',
   webtoon: 'English, Korean, French, Spanish',
+  'naver webtoon': 'Korean (Official Raw)',
   tapas: 'English',
   tappytoon: 'English, French, German',
   'royal road': 'English (Original Web Novel)',
@@ -48,6 +49,7 @@ export default function SeriesDetailPage() {
   const [status, setStatus] = useState<string>('plan_to_read');
   const [showNumberInput, setShowNumberInput] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [stepIncrement, setStepIncrement] = useState(1);
 
   const [reportOpen, setReportOpen] = useState(false);
   const [reportType, setReportType] = useState('broken_link');
@@ -55,6 +57,10 @@ export default function SeriesDetailPage() {
   const [reportSubmitted, setReportSubmitted] = useState(false);
 
   useEffect(() => {
+    // Read user step preference
+    const savedStep = localStorage.getItem('omnidex_step_increment');
+    if (savedStep) setStepIncrement(parseInt(savedStep, 10) || 1);
+
     async function loadSeriesAndUserData() {
       if (!id) return;
       setLoading(true);
@@ -86,6 +92,7 @@ export default function SeriesDetailPage() {
             setIsFollowing(trackData.is_following ?? true);
           }
         } else {
+          // Robust LocalStorage Guest Library Check
           try {
             const guestLibrary = JSON.parse(localStorage.getItem('omnidex_guest_library') || '[]');
             const local = guestLibrary.find((g: any) => g.id === data.id);
@@ -209,7 +216,15 @@ export default function SeriesDetailPage() {
     );
   }
 
-  const officialLinks = (series.official_links as any[]) || [];
+  // Deduplicate official links by normalized URL and site name
+  const rawLinks = (series.official_links as any[]) || [];
+  const uniqueMap = new Map();
+  rawLinks.forEach((src) => {
+    if (src && src.url && !uniqueMap.has(src.url)) {
+      uniqueMap.set(src.url, src);
+    }
+  });
+  const officialLinks = Array.from(uniqueMap.values());
   const totalUnits = series.total_units || 0;
 
   return (
@@ -322,7 +337,7 @@ export default function SeriesDetailPage() {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handleProgressChange(progress - 1)}
+                onClick={() => handleProgressChange(progress - stepIncrement)}
                 className="p-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
               >
                 <Minus className="w-3.5 h-3.5" />
@@ -336,7 +351,7 @@ export default function SeriesDetailPage() {
                   autoFocus
                   defaultValue={progress}
                   onBlur={(e) => {
-                    handleProgressChange(parseInt(e.target.value) || 0);
+                    handleProgressChange(parseInt(e.target.value, 10) || 0);
                     setShowNumberInput(false);
                   }}
                   className="w-14 text-center text-sm font-black text-indigo-400 bg-slate-900 border border-indigo-500 rounded px-1"
@@ -351,7 +366,7 @@ export default function SeriesDetailPage() {
               )}
 
               <button
-                onClick={() => handleProgressChange(progress + 1)}
+                onClick={() => handleProgressChange(progress + stepIncrement)}
                 className="p-1 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -360,7 +375,7 @@ export default function SeriesDetailPage() {
           </div>
         </div>
 
-        {/* Official Sources with Badges */}
+        {/* Deduplicated Official Sources with Language Badges */}
         <div className="space-y-2">
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
             Official Sources & Translations
