@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
 import { 
   ArrowLeft, ExternalLink, Star, Plus, Minus, Bookmark, 
-  Globe, ChevronDown, ChevronUp, Flag, Check, X 
+  Globe, ChevronDown, ChevronUp, Flag, X 
 } from 'lucide-react';
 
 const PLATFORM_LANGUAGES: Record<string, string> = {
@@ -42,7 +42,6 @@ export default function SeriesDetailPage() {
   const [loading, setLoading] = useState(true);
   const [synopsisExpanded, setSynopsisExpanded] = useState(false);
   
-  // User Auth & Tracking
   const [user, setUser] = useState<any>(null);
   const [isFollowing, setIsFollowing] = useState(false);
   const [progress, setProgress] = useState<number>(0);
@@ -50,7 +49,6 @@ export default function SeriesDetailPage() {
   const [showNumberInput, setShowNumberInput] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Reporting State
   const [reportOpen, setReportOpen] = useState(false);
   const [reportType, setReportType] = useState('broken_link');
   const [reportDetails, setReportDetails] = useState('');
@@ -87,6 +85,16 @@ export default function SeriesDetailPage() {
             setStatus(trackData.status || 'plan_to_read');
             setIsFollowing(trackData.is_following ?? true);
           }
+        } else {
+          try {
+            const guestLibrary = JSON.parse(localStorage.getItem('omnidex_guest_library') || '[]');
+            const local = guestLibrary.find((g: any) => g.id === data.id);
+            if (local) {
+              setProgress(local.progress || 0);
+              setStatus(local.status || 'plan_to_read');
+              setIsFollowing(true);
+            }
+          } catch (e) {}
         }
       }
       setLoading(false);
@@ -99,62 +107,75 @@ export default function SeriesDetailPage() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleProgressChange = async (newVal: number) => {
-    if (!user) {
-      showToast('Sign in to track reading progress');
-      return;
-    }
+  const syncGuestStorage = (nextProgress: number, nextStatus: string, nextFollow: boolean) => {
+    try {
+      let guestLibrary = JSON.parse(localStorage.getItem('omnidex_guest_library') || '[]');
+      if (nextFollow) {
+        const existingIdx = guestLibrary.findIndex((g: any) => g.id === series.id);
+        const entry = { id: series.id, progress: nextProgress, status: nextStatus };
+        if (existingIdx >= 0) guestLibrary[existingIdx] = entry;
+        else guestLibrary.push(entry);
+      } else {
+        guestLibrary = guestLibrary.filter((g: any) => g.id !== series.id);
+      }
+      localStorage.setItem('omnidex_guest_library', JSON.stringify(guestLibrary));
+    } catch (e) {}
+  };
 
+  const handleProgressChange = async (newVal: number) => {
     const ceiling = series?.total_units && series.total_units > 0 ? series.total_units : 99999;
     const finalVal = Math.min(Math.max(0, newVal), ceiling);
     setProgress(finalVal);
 
-    await supabase.from('user_tracker').upsert({
-      user_id: user.id,
-      media_id: series.id,
-      progress: finalVal,
-      status,
-      is_following: isFollowing,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id,media_id' });
+    if (user) {
+      await supabase.from('user_tracker').upsert({
+        user_id: user.id,
+        media_id: series.id,
+        progress: finalVal,
+        status,
+        is_following: isFollowing,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,media_id' });
+    } else {
+      syncGuestStorage(finalVal, status, isFollowing);
+    }
   };
 
   const handleStatusChange = async (newStatus: string) => {
-    if (!user) {
-      showToast('Sign in to save tracker status');
-      return;
-    }
     setStatus(newStatus);
 
-    await supabase.from('user_tracker').upsert({
-      user_id: user.id,
-      media_id: series.id,
-      progress,
-      status: newStatus,
-      is_following: isFollowing,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id,media_id' });
+    if (user) {
+      await supabase.from('user_tracker').upsert({
+        user_id: user.id,
+        media_id: series.id,
+        progress,
+        status: newStatus,
+        is_following: isFollowing,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,media_id' });
+    } else {
+      syncGuestStorage(progress, newStatus, isFollowing);
+    }
   };
 
   const toggleFollow = async () => {
-    if (!user) {
-      showToast('Sign in to bookmark and follow series');
-      return;
-    }
-
     const nextState = !isFollowing;
     setIsFollowing(nextState);
 
-    await supabase.from('user_tracker').upsert({
-      user_id: user.id,
-      media_id: series.id,
-      progress,
-      status,
-      is_following: nextState,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id,media_id' });
+    if (user) {
+      await supabase.from('user_tracker').upsert({
+        user_id: user.id,
+        media_id: series.id,
+        progress,
+        status,
+        is_following: nextState,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,media_id' });
+    } else {
+      syncGuestStorage(progress, status, nextState);
+    }
 
-    showToast(nextState ? 'Added to your Library' : 'Removed from Library');
+    showToast(nextState ? 'Added to Library' : 'Removed from Library');
   };
 
   const submitReport = async (e: React.FormEvent) => {
@@ -193,7 +214,6 @@ export default function SeriesDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#07090e] pb-20">
-      
       {/* Banner */}
       <div className="relative w-full h-44 sm:h-64 overflow-hidden bg-slate-900 border-b border-slate-800">
         <img
@@ -213,11 +233,10 @@ export default function SeriesDetailPage() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 -mt-20 relative z-10 space-y-4">
-        
         {/* Core Info */}
         <div className="flex gap-4 items-start">
           <div className="w-28 sm:w-36 aspect-[2/3] rounded-xl overflow-hidden shadow-2xl border border-slate-700 bg-slate-900 flex-shrink-0">
-            <img src={series.cover_url} alt="" className="w-full h-full object-cover" />
+            <img src={series.cover_url || '/placeholder.svg'} alt="" className="w-full h-full object-cover" />
           </div>
 
           <div className="flex-1 min-w-0 space-y-1.5 pt-6 sm:pt-10">
@@ -230,7 +249,7 @@ export default function SeriesDetailPage() {
               </span>
               {series.score && (
                 <span className="flex items-center gap-1 text-xs font-black text-amber-400">
-                  <Star className="w-3 h-3 fill-amber-400" /> {series.score}
+                  <Star className="w-3.5 h-3.5 fill-amber-400" /> {series.score}
                 </span>
               )}
             </div>
@@ -264,7 +283,7 @@ export default function SeriesDetailPage() {
           </div>
         </div>
 
-        {/* Truncated Synopsis with Toggle */}
+        {/* Truncated Synopsis */}
         <div className="bg-[#0e121b] p-4 rounded-xl border border-slate-800 space-y-2">
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Synopsis</h2>
           <p className={`text-xs text-slate-300 leading-relaxed ${synopsisExpanded ? '' : 'line-clamp-3'}`}>
@@ -279,7 +298,7 @@ export default function SeriesDetailPage() {
           </button>
         </div>
 
-        {/* Progress Tracker with Number Pad & Limits */}
+        {/* Progress Tracker */}
         <div className="bg-[#0e121b] p-4 rounded-xl border border-slate-800 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-300">Track Progress</h2>
@@ -309,7 +328,6 @@ export default function SeriesDetailPage() {
                 <Minus className="w-3.5 h-3.5" />
               </button>
 
-              {/* Number Pad Trigger */}
               {showNumberInput ? (
                 <input
                   type="number"
@@ -342,7 +360,7 @@ export default function SeriesDetailPage() {
           </div>
         </div>
 
-        {/* Compact Official Sources Bar with Language Badges */}
+        {/* Official Sources with Badges */}
         <div className="space-y-2">
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
             Official Sources & Translations
@@ -376,14 +394,13 @@ export default function SeriesDetailPage() {
         </div>
       </div>
 
-      {/* Floating Feedback Toast */}
       {toastMessage && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl z-50 animate-fade-in">
           {toastMessage}
         </div>
       )}
 
-      {/* User Issue Report Modal */}
+      {/* Report Modal */}
       {reportOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setReportOpen(false)} />
