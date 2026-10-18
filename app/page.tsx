@@ -3,17 +3,16 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase';
-import { 
-  Star, ChevronRight, ArrowRight, Share2, 
-  Check, MessageCircle 
-} from 'lucide-react';
+import Spotlight from '../components/Spotlight';
+import { Star, Check, Link2 } from 'lucide-react';
 
 export default function HomePage({
   searchParams,
 }: {
-  searchParams?: { type?: string };
+  searchParams?: { type?: string; search?: string };
 }) {
   const selectedType = (searchParams?.type || 'all').toLowerCase();
+  const rawSearch = (searchParams?.search || '').trim();
 
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,12 +32,16 @@ export default function HomePage({
         query = query.eq('media_type', selectedType);
       }
 
+      if (rawSearch) {
+        query = query.ilike('title_primary', `%${rawSearch}%`);
+      }
+
       const { data } = await query;
       setItems(data || []);
       setLoading(false);
     }
     loadCatalog();
-  }, [selectedType]);
+  }, [selectedType, rawSearch]);
 
   // Spotlight 7-Series 3-Second Auto-Rotation
   useEffect(() => {
@@ -52,7 +55,7 @@ export default function HomePage({
   const spotlightList = items.slice(0, 7);
   const currentSpotlight = spotlightList[spotlightIndex] || items[0];
 
-  // Shelves definition
+  // Discovery Shelves
   const trendingSeries = items.slice(0, 15);
   const popularSeries = [...items].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 15);
   const latestReleases = [...items].reverse().slice(0, 15);
@@ -64,12 +67,13 @@ export default function HomePage({
     { label: 'Manhwa', value: 'manhwa' },
     { label: 'Anime', value: 'anime' },
     { label: 'Manga', value: 'manga' },
+    { label: 'Manhua', value: 'manhua' },
   ];
 
   const handleShare = (platform: string) => {
     if (typeof window === 'undefined') return;
     const url = encodeURIComponent(window.location.origin);
-    const text = encodeURIComponent('Track Asian pop culture legally on Omnidex');
+    const text = encodeURIComponent('Omnidex — Official Media Tracker for Anime, Manga, Manhwa & Novels');
 
     let target = '';
     if (platform === 'twitter') target = `https://twitter.com/intent/tweet?url=${url}&text=${text}`;
@@ -141,86 +145,83 @@ export default function HomePage({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-3">
       
-      {/* 1. MangaFlow Compact 7-Series Rotating Spotlight */}
+      {/* 1. MangaFlow Spotlight Hero */}
       {currentSpotlight && (
-        <div className="relative w-full rounded-2xl overflow-hidden bg-[#0e121b] border border-slate-800/80 p-4 sm:p-5 mb-3 shadow-xl">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex-1 min-w-0 space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black tracking-wider uppercase px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                  SPOTLIGHT #{spotlightIndex + 1}
-                </span>
-                <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                  {currentSpotlight.media_type}
-                </span>
-              </div>
-
-              <Link href={`/series/${currentSpotlight.id}`} className="block">
-                <h1 className="text-base sm:text-xl font-black text-white hover:text-indigo-400 transition truncate leading-snug">
-                  {currentSpotlight.title_primary}
-                </h1>
-              </Link>
-
-              <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed max-w-lg">
-                {currentSpotlight.synopsis}
-              </p>
-
-              <div className="pt-1 flex items-center gap-3">
-                <Link
-                  href={`/series/${currentSpotlight.id}`}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition active:scale-95"
-                >
-                  <span>Track Now</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-
-                {/* 7 Switcher Dots */}
-                <div className="flex items-center gap-1.5">
-                  {spotlightList.map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setSpotlightIndex(idx)}
-                      className={`h-1.5 rounded-full transition-all ${
-                        spotlightIndex === idx ? 'w-5 bg-indigo-500' : 'w-1.5 bg-slate-700'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <Link
-              href={`/series/${currentSpotlight.id}`}
-              className="w-20 sm:w-28 aspect-[2/3] flex-shrink-0 rounded-xl overflow-hidden shadow-xl border border-slate-700/60 bg-slate-900 group"
-            >
-              <img
-                src={currentSpotlight.cover_url}
-                alt=""
-                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-              />
-            </Link>
-          </div>
-        </div>
+        <Spotlight
+          item={currentSpotlight}
+          index={spotlightIndex}
+          total={Math.min(7, items.length)}
+          onSelectIndex={(idx) => setSpotlightIndex(idx)}
+        />
       )}
 
-      {/* 2. MangaFire / MangaFlow Social Share Bar */}
-      <div className="flex items-center justify-between bg-[#0e121b] border border-slate-800/80 rounded-xl px-3 py-2 mb-4">
+      {/* 2. Exact MangaFlow Social Share Bar (Circular Colorful SVG Brand Icons) */}
+      <div className="flex items-center justify-between bg-[#0e121b] border border-slate-800/80 rounded-2xl px-3.5 py-2.5 mb-4 shadow-md">
         <span className="text-[11px] font-bold text-slate-400">Share Omnidex:</span>
         <div className="flex items-center gap-2">
-          {['twitter', 'facebook', 'whatsapp', 'telegram', 'reddit'].map((p) => (
-            <button
-              key={p}
-              onClick={() => handleShare(p)}
-              className="p-1 rounded-lg bg-[#111622] hover:bg-indigo-600/30 text-slate-400 hover:text-white transition capitalize text-[10px] font-bold px-2 py-0.5"
-            >
-              {p}
-            </button>
-          ))}
+          
+          {/* Facebook */}
+          <button
+            onClick={() => handleShare('facebook')}
+            aria-label="Share on Facebook"
+            className="w-7 h-7 rounded-full bg-[#1877f2] flex items-center justify-center text-white hover:opacity-90 transition active:scale-90"
+          >
+            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+            </svg>
+          </button>
+
+          {/* X (Twitter) */}
+          <button
+            onClick={() => handleShare('twitter')}
+            aria-label="Share on X"
+            className="w-7 h-7 rounded-full bg-[#111622] border border-slate-700 flex items-center justify-center text-white hover:opacity-90 transition active:scale-90"
+          >
+            <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 24.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+            </svg>
+          </button>
+
+          {/* WhatsApp */}
+          <button
+            onClick={() => handleShare('whatsapp')}
+            aria-label="Share on WhatsApp"
+            className="w-7 h-7 rounded-full bg-[#25d366] flex items-center justify-center text-white hover:opacity-90 transition active:scale-90"
+          >
+            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+              <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
+            </svg>
+          </button>
+
+          {/* Telegram */}
+          <button
+            onClick={() => handleShare('telegram')}
+            aria-label="Share on Telegram"
+            className="w-7 h-7 rounded-full bg-[#229ed9] flex items-center justify-center text-white hover:opacity-90 transition active:scale-90"
+          >
+            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.121l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.832.942z" />
+            </svg>
+          </button>
+
+          {/* Reddit */}
+          <button
+            onClick={() => handleShare('reddit')}
+            aria-label="Share on Reddit"
+            className="w-7 h-7 rounded-full bg-[#ff4500] flex items-center justify-center text-white hover:opacity-90 transition active:scale-90"
+          >
+            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+              <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701z" />
+            </svg>
+          </button>
+
+          {/* Copy Link */}
           <button
             onClick={() => handleShare('copy')}
-            className="p-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition"
+            aria-label="Copy link"
+            className="w-7 h-7 rounded-full bg-[#1c2436] hover:bg-slate-700 flex items-center justify-center text-slate-200 transition active:scale-90"
           >
-            {copied ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link2 className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
