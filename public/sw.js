@@ -1,10 +1,6 @@
-const CACHE_NAME = 'omnidex-cache-v1';
-const PRECACHE_ASSETS = ['/', '/manifest.json', '/icon.svg'];
+const CACHE_NAME = 'omnidex-v2';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_ASSETS))
-  );
   self.skipWaiting();
 });
 
@@ -22,8 +18,21 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+
+  // NEVER intercept Next.js static assets, stylesheets, chunks, or external APIs
+  if (
+    url.pathname.startsWith('/_next/') ||
+    url.pathname.includes('.css') ||
+    url.pathname.includes('.js') ||
+    url.hostname.includes('supabase.co') ||
+    event.request.method !== 'GET'
+  ) {
+    return;
+  }
+
+  // Network-first strategy for pages
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });
