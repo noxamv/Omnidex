@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
-import { Star, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 export default function UserLibraryPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -28,6 +28,27 @@ export default function UserLibraryPage() {
           user_status: row.status,
         }));
         setItems(mapped);
+      } else {
+        try {
+          const guestLibrary = JSON.parse(localStorage.getItem('omnidex_guest_library') || '[]');
+          if (guestLibrary.length > 0) {
+            const guestIds = guestLibrary.map((g: any) => g.id);
+            const { data } = await supabase
+              .from('media_catalog')
+              .select('*')
+              .in('id', guestIds);
+
+            const mapped = (data || []).map((row: any) => {
+              const local = guestLibrary.find((g: any) => g.id === row.id);
+              return {
+                ...row,
+                user_progress: local?.progress || 0,
+                user_status: local?.status || 'plan_to_read',
+              };
+            });
+            setItems(mapped);
+          }
+        } catch (e) {}
       }
       setLoading(false);
     }
@@ -81,7 +102,7 @@ export default function UserLibraryPage() {
           {filteredItems.map((item) => (
             <Link key={item.id} href={`/series/${item.id}`} className="flex flex-col group">
               <div className="w-full aspect-[2/3] relative rounded-xl overflow-hidden bg-slate-900 border border-slate-800 group-hover:border-indigo-500/60 transition">
-                <img src={item.cover_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition" />
+                <img src={item.cover_url || '/placeholder.svg'} alt="" className="w-full h-full object-cover group-hover:scale-105 transition" />
                 <span className="absolute bottom-1 right-1 bg-black/85 px-1.5 py-0.5 rounded text-[10px] font-bold text-indigo-400">
                   Ep/Ch {item.user_progress}
                 </span>
