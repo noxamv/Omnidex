@@ -1,33 +1,45 @@
-name: OmniIndex Catalog Auto-Sync
+# .github/workflows/sync.yml
+name: Omnidex Global Media Ingestion Engine
 
 on:
   schedule:
+    # Executes automatically every 30 minutes
     - cron: '*/30 * * * *'
   workflow_dispatch:
 
 concurrency:
-  group: sync-group
+  group: omnidex-catalog-pipeline
   cancel-in-progress: true
 
 jobs:
-  run-sync:
+  harvest-catalog:
+    name: 🌐 Multi-Source Catalog Ingestion
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 35
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Code Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 22 Runtime
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Install Dependencies Fast
-        run: npm install @supabase/supabase-js ws --no-audit --no-fund --prefer-offline
+      - name: Cache Node Modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
-      - name: Execute Catalog Sync
+      - name: Install Runtime Dependencies
+        run: npm install @supabase/supabase-js --no-audit --no-fund
+
+      - name: Execute High-Throughput Harvester
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NODE_NO_WARNINGS: 1
         run: node scripts/sync-catalog.js
