@@ -10,20 +10,20 @@ import {
   Menu, Search, X, LogIn, LogOut, Mail, 
   Bookmark, SlidersHorizontal, RefreshCw, 
   Upload, FileDown, Smartphone, Star, 
-  Compass, Layers, Globe
+  Compass, Layers, Globe, Bell, ChevronRight, User, Settings
 } from 'lucide-react';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
-  // Dialog State
-  const [menuPopupOpen, setMenuPopupOpen] = useState(false);
+  // Floating Popover Menus
+  const [navMenuOpen, setNavMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
 
-  // User Auth State
+  // User State
   const [user, setUser] = useState<any>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,15 +38,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [searchLoading, setSearchLoading] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // PWA Install State
+  // PWA Prompt
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
 
-  // AniList Importer State
+  // AniList Import State
   const [aniListUsername, setAniListUsername] = useState('');
   const [importLoading, setImportLoading] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
 
+  // 1. Keyboard shortcuts & PWA listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -54,7 +55,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         setSearchOpen((prev) => !prev);
       } else if (e.key === 'Escape') {
         setSearchOpen(false);
-        setMenuPopupOpen(false);
+        setNavMenuOpen(false);
         setUserMenuOpen(false);
         setAuthOpen(false);
         setSyncModalOpen(false);
@@ -75,6 +76,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // 2. Auth state & guest library migration
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -260,66 +262,69 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `omnidex_library_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `omnidex_backup_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#06080d] text-zinc-100">
       {/* Top Navbar */}
-      <header className="sticky top-0 z-40 w-full bg-[#06080d]/80 backdrop-blur-xl border-b border-white/[0.06]">
+      <header className="sticky top-0 z-40 w-full bg-[#06080d]/85 backdrop-blur-xl border-b border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
-          {/* Logo & Brand Title */}
-          <div className="flex items-center gap-6">
+          
+          {/* LEFT: Hamburger Menu Button + Logo */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setNavMenuOpen((prev) => !prev);
+                setUserMenuOpen(false);
+              }}
+              className="p-2 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 text-zinc-300 hover:text-white transition"
+              title="Browse Catalog"
+              aria-label="Navigation Menu"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+
             <Link href="/" className="flex items-center gap-2.5 group">
               <OmnidexLogo className="w-7 h-7 sm:w-8 sm:h-8 group-hover:scale-105 transition-transform duration-300" />
               <span className="font-black text-lg sm:text-xl tracking-tight text-white group-hover:text-indigo-400 transition">
                 Omnidex
               </span>
             </Link>
-
-            <nav className="hidden md:flex items-center gap-1">
-              <Link href="/" className="px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-300 hover:text-white hover:bg-white/5 transition">
-                Discover
-              </Link>
-              <Link href="/library" className="px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-300 hover:text-white hover:bg-white/5 transition flex items-center gap-1.5">
-                <Bookmark className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Library</span>
-              </Link>
-              <Link href="/filter" className="px-3 py-1.5 rounded-lg text-xs font-bold text-zinc-300 hover:text-white hover:bg-white/5 transition flex items-center gap-1.5">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Filter</span>
-              </Link>
-            </nav>
           </div>
 
-          {/* Search Bar & Actions */}
+          {/* RIGHT: Search, Notifications & User Avatar */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-3 px-3 py-1.5 rounded-xl bg-zinc-900/80 hover:bg-zinc-800/80 border border-white/10 text-zinc-400 hover:text-zinc-200 transition text-xs font-medium"
+              className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-zinc-900/80 hover:bg-zinc-800/80 border border-white/10 text-zinc-400 hover:text-zinc-200 transition text-xs font-medium"
             >
               <Search className="w-3.5 h-3.5 text-zinc-400" />
-              <span className="hidden sm:inline">Search series...</span>
+              <span className="hidden sm:inline">Search...</span>
               <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-zinc-800 border border-white/10 text-[10px] font-mono text-zinc-400">
                 ⌘K
               </kbd>
             </button>
 
-            {/* Sync / Importer Button */}
-            <button
-              onClick={() => setSyncModalOpen(true)}
-              className="p-2 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 text-zinc-300 hover:text-white transition"
-              title="Import & Sync Library"
+            {/* Notification Bell */}
+            <Link
+              href="/library"
+              className="p-2 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 text-zinc-400 hover:text-white transition"
+              title="Library Notifications"
             >
-              <RefreshCw className="w-3.5 h-3.5 text-indigo-400" />
-            </button>
+              <Bell className="w-4 h-4" />
+            </Link>
 
-            {/* Auth / Profile */}
+            {/* User Avatar & Dropdown */}
             {user ? (
               <button
-                onClick={() => setUserMenuOpen((prev) => !prev)}
+                onClick={() => {
+                  setUserMenuOpen((prev) => !prev);
+                  setNavMenuOpen(false);
+                }}
                 className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center font-black text-xs text-indigo-400 hover:border-indigo-400 transition"
+                title="Account Menu"
               >
                 {user.email?.[0].toUpperCase() || 'U'}
               </button>
@@ -331,27 +336,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 Sign In
               </button>
             )}
-
-            {/* Pop-up Menu Trigger */}
-            <button
-              onClick={() => setMenuPopupOpen((prev) => !prev)}
-              className="p-2 rounded-xl bg-zinc-900/80 border border-white/10 text-zinc-400 hover:text-white transition"
-              title="Open Navigation Menu"
-            >
-              <Menu className="w-4 h-4" />
-            </button>
           </div>
         </div>
       </header>
 
-      {/* Modern Pop-Up Menu Box */}
-      {menuPopupOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-end pt-16 pr-4 sm:pr-8">
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMenuPopupOpen(false)} />
+      {/* TOP-LEFT: Browse Catalog Floating Dropdown */}
+      {navMenuOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-start pt-16 pl-4 sm:pl-6">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setNavMenuOpen(false)} />
           <div className="relative w-72 rounded-3xl bg-zinc-900/95 backdrop-blur-2xl border border-white/10 shadow-2xl p-4 space-y-3 z-10 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-              <span className="text-xs font-black uppercase tracking-wider text-white">Omnidex Menu</span>
-              <button onClick={() => setMenuPopupOpen(false)} className="text-zinc-400 hover:text-white">
+              <span className="text-xs font-black uppercase tracking-wider text-zinc-400">Browse Catalog</span>
+              <button onClick={() => setNavMenuOpen(false)} className="text-zinc-400 hover:text-white">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -359,36 +355,47 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <nav className="space-y-1 text-xs font-bold">
               <Link
                 href="/"
-                onClick={() => setMenuPopupOpen(false)}
-                className="flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
+                onClick={() => setNavMenuOpen(false)}
+                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
               >
-                <Compass className="w-4 h-4 text-indigo-400" />
-                <span>Discovery Feed</span>
+                <div className="flex items-center gap-2.5">
+                  <Compass className="w-4 h-4 text-indigo-400" />
+                  <span>Trending Series</span>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
               </Link>
-              <Link
-                href="/library"
-                onClick={() => setMenuPopupOpen(false)}
-                className="flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
-              >
-                <Bookmark className="w-4 h-4 text-indigo-400" />
-                <span>My Library Tracker</span>
-              </Link>
+
               <Link
                 href="/filter"
-                onClick={() => setMenuPopupOpen(false)}
-                className="flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
+                onClick={() => setNavMenuOpen(false)}
+                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
               >
-                <SlidersHorizontal className="w-4 h-4 text-zinc-400" />
-                <span>Explore by Genre & Tags</span>
+                <div className="flex items-center gap-2.5">
+                  <SlidersHorizontal className="w-4 h-4 text-zinc-400" />
+                  <span>Filter Series (45+ Genres)</span>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+              </Link>
+
+              <Link
+                href="/library"
+                onClick={() => setNavMenuOpen(false)}
+                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Bookmark className="w-4 h-4 text-indigo-400" />
+                  <span>My Library Tracker</span>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
               </Link>
 
               {showInstallBtn && (
                 <button
                   onClick={() => {
                     handleInstallPWA();
-                    setMenuPopupOpen(false);
+                    setNavMenuOpen(false);
                   }}
-                  className="w-full flex items-center justify-between p-2.5 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 transition text-left"
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 transition text-left mt-2"
                 >
                   <span className="flex items-center gap-2">
                     <Smartphone className="w-4 h-4" /> Install Omnidex App
@@ -400,34 +407,48 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* User Pop-Up */}
+      {/* TOP-RIGHT: User Profile Floating Dropdown */}
       {userMenuOpen && (
-        <div className="fixed top-16 right-4 sm:right-6 w-56 rounded-2xl bg-zinc-900/95 backdrop-blur-2xl border border-white/10 shadow-2xl z-50 p-2 space-y-1">
-          <div className="px-3 py-2 border-b border-white/10">
-            <p className="text-[10px] uppercase font-bold text-zinc-500">Logged In As</p>
-            <p className="text-xs font-bold text-zinc-200 truncate">{user?.email}</p>
+        <div className="fixed inset-0 z-50 flex items-start justify-end pt-16 pr-4 sm:pr-6">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setUserMenuOpen(false)} />
+          <div className="relative w-64 rounded-3xl bg-zinc-900/95 backdrop-blur-2xl border border-white/10 shadow-2xl p-3 space-y-1.5 z-10 animate-in fade-in zoom-in-95">
+            <div className="px-3 py-2 border-b border-white/10">
+              <p className="text-[10px] uppercase font-bold text-zinc-500">Signed In As</p>
+              <p className="text-xs font-bold text-zinc-200 truncate">{user?.email}</p>
+            </div>
+
+            <Link
+              href="/library"
+              onClick={() => setUserMenuOpen(false)}
+              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-white/5 flex items-center gap-2.5"
+            >
+              <Bookmark className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Library Tracker</span>
+            </Link>
+
+            <button
+              onClick={() => {
+                setSyncModalOpen(true);
+                setUserMenuOpen(false);
+              }}
+              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-white/5 flex items-center gap-2.5"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-indigo-400" />
+              <span>AniList / JSON Import</span>
+            </button>
+
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                setUserMenuOpen(false);
+                window.location.reload();
+              }}
+              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 flex items-center gap-2.5 border-t border-white/5 pt-2"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
+            </button>
           </div>
-          <button
-            onClick={() => {
-              setSyncModalOpen(true);
-              setUserMenuOpen(false);
-            }}
-            className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-white/5 flex items-center gap-2"
-          >
-            <RefreshCw className="w-3.5 h-3.5 text-indigo-400" />
-            <span>AniList / JSON Import</span>
-          </button>
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              setUserMenuOpen(false);
-              window.location.reload();
-            }}
-            className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 flex items-center gap-2"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
-          </button>
         </div>
       )}
 
@@ -442,7 +463,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 ref={searchInputRef}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search across 2,825 verified series..."
+                placeholder="Search across 4,500+ verified series..."
                 className="w-full bg-transparent text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none"
               />
               <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-[10px] font-mono text-zinc-400 border border-white/10">
@@ -611,7 +632,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Main Content Area */}
+      {/* Main Content Slot */}
       <main className="flex-1">{children}</main>
 
       {/* Footer */}
