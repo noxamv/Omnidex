@@ -25,7 +25,6 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [spotlightIndex, setSpotlightIndex] = useState(0);
 
-  // MangaFlow Section-Specific Filter Tabs
   const [trendingTab, setTrendingTab] = useState('all');
   const [popularTab, setPopularTab] = useState('all');
   const [latestTab, setLatestTab] = useState('all');
@@ -39,13 +38,12 @@ export default function HomePage() {
       const { data } = await supabase
         .from('media_catalog')
         .select('*')
-        .order('score', { ascending: false })
-        .limit(200);
+        .order('score', { ascending: false, nullsFirst: false })
+        .limit(300);
 
       const items = data || [];
       setCatalog(items);
 
-      // Fetch user/guest followed titles
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const { data: trackData } = await supabase
@@ -97,22 +95,25 @@ export default function HomePage() {
     }
   };
 
-  // Filter helpers
+  // Filter across the full catalog, not just the first 50
   const filterList = (list: any[], tab: string) => {
-    if (tab === 'all') return list;
-    return list.filter((item) => item.media_type === tab);
+    if (tab === 'all') return list.slice(0, 20);
+    return list.filter((item) => item.media_type === tab).slice(0, 20);
   };
 
-  const trendingList = filterList(catalog.slice(0, 50), trendingTab);
-  const popularList = filterList([...catalog].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 50), popularTab);
-  const latestList = filterList([...catalog].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 50), latestTab);
+  const trendingList = filterList(catalog, trendingTab);
+  const popularList = filterList([...catalog].sort((a, b) => (b.score || 0) - (a.score || 0)), popularTab);
+  const latestList = filterList([...catalog].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()), latestTab);
   const randomList = [...catalog].sort(() => 0.5 - Math.random()).slice(0, 15);
 
-  const spotlightPool = catalog.slice(0, 7);
+  // Filter out any titles with broken or placeholder covers from the Spotlight
+  const spotlightPool = catalog
+    .filter((i) => i.cover_url && !i.cover_url.includes('placeholder'))
+    .slice(0, 7);
   const activeSpotlight = spotlightPool[spotlightIndex] || catalog[0] || null;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-24 space-y-9">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-24 space-y-8">
       {/* 1. Hero Spotlight */}
       {activeSpotlight && (
         <Spotlight
@@ -123,11 +124,11 @@ export default function HomePage() {
         />
       )}
 
-      {/* 2. MangaFlow Inline Social Share Strip with Clean SVG Brand Logos */}
+      {/* 2. MangaFlow Social Share Strip */}
       <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-zinc-900/60 border border-white/[0.06] backdrop-blur-md">
         <span className="text-xs font-bold text-zinc-400 pl-1 whitespace-nowrap">Share Omnidex:</span>
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-          {/* X / Twitter */}
+          {/* X */}
           <a
             href="https://twitter.com/intent/tweet?text=Track%20all%20manga,%20manhwa,%20anime%20and%20novels%20legally%20on%20Omnidex!&url=https://omnidex.vercel.app"
             target="_blank"
@@ -192,14 +193,13 @@ export default function HomePage() {
             </svg>
           </a>
 
-          {/* Copy Link Button */}
+          {/* Clean Square Icon for Copy (No truncated 'Cc' text) */}
           <button
             onClick={handleCopyLink}
-            className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-bold text-zinc-300 flex items-center gap-1.5 transition whitespace-nowrap"
+            className="w-8 h-8 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white flex items-center justify-center transition p-2"
             title="Copy URL"
           >
             {linkCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link2 className="w-3.5 h-3.5" />}
-            <span>{linkCopied ? 'Copied' : 'Copy'}</span>
           </button>
         </div>
       </div>
