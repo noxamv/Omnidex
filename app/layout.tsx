@@ -5,7 +5,7 @@ import AppShell from '../components/AppShell';
 
 export const metadata: Metadata = {
   title: 'Omnidex — Official Media & Series Tracker',
-  description: 'Track legal anime, manhwa, manga, and light novels across official streaming and publishing platforms.',
+  description: 'Track verified anime, manhwa, manga, and light novels legally across official streaming and publishing platforms.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -43,7 +43,7 @@ export default function RootLayout({
                 window.addEventListener('load', function() {
                   navigator.serviceWorker.register('/sw.js').then(
                     function(reg) { console.log('Omnidex PWA Active: ', reg.scope); },
-                    function(err) { console.log('Omnidex PWA Failed: ', err); }
+                    function(err) { console.log('Omnidex PWA Registration Error: ', err); }
                   );
                 });
               }
