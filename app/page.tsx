@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase';
 import Spotlight from '../components/Spotlight';
-import { Star, Bookmark, Sparkles, TrendingUp, BookOpen } from 'lucide-react';
+import { Star, Bookmark, TrendingUp } from 'lucide-react';
 
 const MEDIA_TYPES = [
   { label: 'All Catalog', value: 'all' },
@@ -28,6 +28,7 @@ export default function HomePage({
   const [items, setItems] = useState<any[]>([]);
   const [followingItems, setFollowingItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [spotlightIndex, setSpotlightIndex] = useState(0);
 
   useEffect(() => {
     async function loadData() {
@@ -90,10 +91,20 @@ export default function HomePage({
     loadData();
   }, [activeType, rawSearch]);
 
+  const spotlightPool = items.slice(0, 7);
+  const activeSpotlightItem = spotlightPool[spotlightIndex] || items[0] || null;
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-20 space-y-8">
       {/* Dynamic Hero Spotlight Banner */}
-      <Spotlight items={items.slice(0, 5)} />
+      {activeSpotlightItem && (
+        <Spotlight
+          item={activeSpotlightItem}
+          index={spotlightIndex}
+          total={spotlightPool.length}
+          onSelectIndex={(idx) => setSpotlightIndex(idx)}
+        />
+      )}
 
       {/* Active Continue Reading Shelf */}
       {followingItems.length > 0 && (
@@ -135,7 +146,10 @@ export default function HomePage({
         {MEDIA_TYPES.map((t) => (
           <button
             key={t.value}
-            onClick={() => setActiveType(t.value)}
+            onClick={() => {
+              setActiveType(t.value);
+              setSpotlightIndex(0);
+            }}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition whitespace-nowrap ${
               activeType === t.value
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
