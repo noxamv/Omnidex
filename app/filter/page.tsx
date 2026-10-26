@@ -3,14 +3,16 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
-import { Star, Search, RotateCcw, Filter, Check } from 'lucide-react';
+import { Star, Search, RotateCcw, Filter, Compass } from 'lucide-react';
 
-const GENRES = [
+const GLOBAL_GENRES = [
   'All Genres', 'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 
   'Harem', 'Historical', 'Horror', 'Isekai', 'Martial Arts', 'Mecha', 
   'Mystery', 'Psychological', 'Romance', 'Sci-Fi', 'Slice of Life', 
-  'Sports', 'Supernatural', 'Thriller', 'Tragedy', 'LitRPG', 'Cultivation'
+  'Sports', 'Supernatural', 'Thriller', 'Tragedy', 'LitRPG', 'Cultivation',
+  'Murim', 'Villainess', 'Reincarnation', 'Cyberpunk', 'Post-Apocalyptic'
 ];
 
 const FORMATS = [
@@ -23,10 +25,13 @@ const FORMATS = [
 ];
 
 export default function FilterPage() {
+  const searchParams = useSearchParams();
+  const initialGenre = searchParams.get('genre') || 'All Genres';
+  const initialFormat = searchParams.get('format') || 'all';
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFormat, setSelectedFormat] = useState('all');
-  const [minCount, setMinCount] = useState<number>(0);
-  const [selectedGenre, setSelectedGenre] = useState('All Genres');
+  const [selectedFormat, setSelectedFormat] = useState(initialFormat);
+  const [selectedGenre, setSelectedGenre] = useState(initialGenre);
 
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -34,7 +39,11 @@ export default function FilterPage() {
   useEffect(() => {
     async function executeFilter() {
       setLoading(true);
-      let query = supabase.from('media_catalog').select('*').order('score', { ascending: false }).limit(60);
+      let query = supabase
+        .from('media_catalog')
+        .select('*')
+        .order('score', { ascending: false })
+        .limit(40);
 
       if (searchTerm.trim()) {
         query = query.ilike('title_primary', `%${searchTerm.trim()}%`);
@@ -42,10 +51,6 @@ export default function FilterPage() {
 
       if (selectedFormat !== 'all') {
         query = query.eq('media_type', selectedFormat);
-      }
-
-      if (minCount > 0) {
-        query = query.gte('total_units', minCount);
       }
 
       if (selectedGenre !== 'All Genres') {
@@ -57,25 +62,24 @@ export default function FilterPage() {
       setLoading(false);
     }
 
-    const timer = setTimeout(executeFilter, 250);
+    const timer = setTimeout(executeFilter, 200);
     return () => clearTimeout(timer);
-  }, [searchTerm, selectedFormat, minCount, selectedGenre]);
+  }, [searchTerm, selectedFormat, selectedGenre]);
 
   const handleReset = () => {
     setSearchTerm('');
     setSelectedFormat('all');
-    setMinCount(0);
     setSelectedGenre('All Genres');
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-20 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-24 space-y-7">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-base sm:text-xl font-black text-white flex items-center gap-2">
-            <Filter className="w-5 h-5 text-indigo-400" /> Advanced Filter
+          <h1 className="text-lg sm:text-2xl font-black text-white flex items-center gap-2">
+            <Filter className="w-5 h-5 text-indigo-400" /> Catalog & Genre Matrix
           </h1>
-          <p className="text-xs text-zinc-400">Search and filter across 2,825 verified series</p>
+          <p className="text-xs text-zinc-400">Filter through 2,825 titles by global genre and media format</p>
         </div>
         <button
           onClick={handleReset}
@@ -86,20 +90,20 @@ export default function FilterPage() {
         </button>
       </div>
 
-      {/* Control Panel */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-zinc-900/60 border border-white/[0.08] backdrop-blur-xl space-y-4">
-        {/* Search Bar */}
+      {/* Control Surface */}
+      <div className="p-4 sm:p-5 rounded-3xl bg-zinc-900/60 border border-white/[0.08] backdrop-blur-xl space-y-4 shadow-xl">
+        {/* Search */}
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
           <input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by series title..."
+            placeholder="Search series title directly..."
             className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-zinc-950/80 border border-white/10 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition"
           />
         </div>
 
-        {/* Format Selectors */}
+        {/* Formats */}
         <div className="space-y-1.5">
           <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Format:</label>
           <div className="flex flex-wrap gap-1.5">
@@ -119,17 +123,17 @@ export default function FilterPage() {
           </div>
         </div>
 
-        {/* Genre Pills */}
+        {/* Global Genre Cloud */}
         <div className="space-y-1.5">
-          <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Genre:</label>
-          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
-            {GENRES.map((g) => (
+          <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Global Genres:</label>
+          <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+            {GLOBAL_GENRES.map((g) => (
               <button
                 key={g}
                 onClick={() => setSelectedGenre(g)}
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
                   selectedGenre === g
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
                     : 'bg-zinc-950 hover:bg-zinc-800 text-zinc-400 border border-white/5'
                 }`}
               >
@@ -140,10 +144,13 @@ export default function FilterPage() {
         </div>
       </div>
 
-      {/* Filter Results Feed */}
-      <div className="space-y-3">
+      {/* Results Header */}
+      <div className="space-y-4">
         <div className="flex items-center justify-between text-xs text-zinc-400 font-bold">
-          <span>Matching Titles: {results.length}</span>
+          <span>Active Results: {results.length} titles</span>
+          {selectedGenre !== 'All Genres' && (
+            <span className="text-indigo-400">Filtering by "{selectedGenre}"</span>
+          )}
         </div>
 
         {loading ? (
@@ -151,14 +158,14 @@ export default function FilterPage() {
             Filtering catalog...
           </div>
         ) : results.length === 0 ? (
-          <div className="py-20 text-center text-xs text-zinc-500 border border-dashed border-white/10 rounded-2xl">
-            No series match the selected filter combination.
+          <div className="py-20 text-center text-xs text-zinc-500 border border-dashed border-white/10 rounded-3xl p-6">
+            No series match this exact tag combination.
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
             {results.map((item) => (
               <Link key={item.id} href={`/series/${item.id}`} className="group flex flex-col space-y-1.5">
-                <div className="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-zinc-900 border border-white/10 group-hover:border-indigo-500/60 transition relative">
+                <div className="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-zinc-900 border border-white/10 group-hover:border-indigo-500/60 transition relative shadow-lg">
                   <img src={item.cover_url || '/placeholder.svg'} alt="" className="w-full h-full object-cover group-hover:scale-105 transition" />
                   {item.score && (
                     <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-lg bg-black/80 backdrop-blur-md text-[10px] font-black text-amber-300 border border-white/10 flex items-center gap-0.5">
