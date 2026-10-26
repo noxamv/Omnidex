@@ -1,18 +1,58 @@
 // app/filter/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { Star, Search, RotateCcw, Filter, Compass } from 'lucide-react';
 
 const GLOBAL_GENRES = [
-  'All Genres', 'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 
-  'Harem', 'Historical', 'Horror', 'Isekai', 'Martial Arts', 'Mecha', 
-  'Mystery', 'Psychological', 'Romance', 'Sci-Fi', 'Slice of Life', 
-  'Sports', 'Supernatural', 'Thriller', 'Tragedy', 'LitRPG', 'Cultivation',
-  'Murim', 'Villainess', 'Reincarnation', 'Cyberpunk', 'Post-Apocalyptic'
+  'All Genres',
+  'Action',
+  'Adventure',
+  'Comedy',
+  'Drama',
+  'Fantasy',
+  'Isekai',
+  'Martial Arts',
+  'Murim',
+  'Cultivation',
+  'LitRPG',
+  'System',
+  'Reincarnation',
+  'Villainess',
+  'Supernatural',
+  'Magic',
+  'Mystery',
+  'Psychological',
+  'Romance',
+  'Sci-Fi',
+  'Slice of Life',
+  'Sports',
+  'Thriller',
+  'Horror',
+  'Tragedy',
+  'Historical',
+  'School Life',
+  'Shounen',
+  'Seinen',
+  'Shoujo',
+  'Josei',
+  'Mecha',
+  'Cyberpunk',
+  'Post-Apocalyptic',
+  'Urban Fantasy',
+  'Monsters',
+  'Monster Girls',
+  'Harem',
+  'Demons',
+  'Vampires',
+  'Game',
+  'Military',
+  'Time Travel',
+  'Super Power',
+  'Survival'
 ];
 
 const FORMATS = [
@@ -24,7 +64,7 @@ const FORMATS = [
   { label: 'Novels', value: 'novel' },
 ];
 
-export default function FilterPage() {
+function FilterContent() {
   const searchParams = useSearchParams();
   const initialGenre = searchParams.get('genre') || 'All Genres';
   const initialFormat = searchParams.get('format') || 'all';
@@ -43,7 +83,7 @@ export default function FilterPage() {
         .from('media_catalog')
         .select('*')
         .order('score', { ascending: false })
-        .limit(40);
+        .limit(60);
 
       if (searchTerm.trim()) {
         query = query.ilike('title_primary', `%${searchTerm.trim()}%`);
@@ -79,7 +119,7 @@ export default function FilterPage() {
           <h1 className="text-lg sm:text-2xl font-black text-white flex items-center gap-2">
             <Filter className="w-5 h-5 text-indigo-400" /> Catalog & Genre Matrix
           </h1>
-          <p className="text-xs text-zinc-400">Filter through 2,825 titles by global genre and media format</p>
+          <p className="text-xs text-zinc-400">Search and filter across 2,825 verified series</p>
         </div>
         <button
           onClick={handleReset}
@@ -123,10 +163,15 @@ export default function FilterPage() {
           </div>
         </div>
 
-        {/* Global Genre Cloud */}
+        {/* Comprehensive Global Genre Cloud */}
         <div className="space-y-1.5">
-          <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Global Genres:</label>
-          <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
+              Global Genres ({GLOBAL_GENRES.length - 1}):
+            </label>
+            <span className="text-[10px] text-zinc-500 font-semibold">Scroll to view all</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
             {GLOBAL_GENRES.map((g) => (
               <button
                 key={g}
@@ -144,7 +189,7 @@ export default function FilterPage() {
         </div>
       </div>
 
-      {/* Results Header */}
+      {/* Results Feed */}
       <div className="space-y-4">
         <div className="flex items-center justify-between text-xs text-zinc-400 font-bold">
           <span>Active Results: {results.length} titles</span>
@@ -187,5 +232,19 @@ export default function FilterPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function FilterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-20 text-center text-xs text-zinc-500 font-bold uppercase tracking-wider">
+          Loading catalog filter...
+        </div>
+      }
+    >
+      <FilterContent />
+    </Suspense>
   );
 }
