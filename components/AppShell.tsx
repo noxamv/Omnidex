@@ -10,7 +10,8 @@ import {
   Menu, Search, X, LogIn, LogOut, Mail, 
   Bookmark, SlidersHorizontal, RefreshCw, 
   Upload, FileDown, Smartphone, Star, 
-  Compass, Layers, Globe, Bell, ChevronRight, User, Settings
+  Compass, Layers, Globe, Bell, ChevronRight, User, Settings,
+  Flame, Clock
 } from 'lucide-react';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -22,6 +23,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
+
+  // Dynamic Catalog Count
+  const [totalCatalogCount, setTotalCatalogCount] = useState<number | null>(null);
 
   // User State
   const [user, setUser] = useState<any>(null);
@@ -47,7 +51,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [importLoading, setImportLoading] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
 
-  // 1. Keyboard shortcuts & PWA listeners
+  // 1. Fetch live total count from Supabase
+  useEffect(() => {
+    async function fetchTotalCount() {
+      const { count } = await supabase
+        .from('media_catalog')
+        .select('*', { count: 'exact', head: true });
+      if (count) setTotalCatalogCount(count);
+    }
+    fetchTotalCount();
+  }, []);
+
+  // 2. Keyboard shortcuts & PWA listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -76,7 +91,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // 2. Auth state & guest library migration
+  // 3. Auth state & guest library migration
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -272,7 +287,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 w-full bg-[#06080d]/85 backdrop-blur-xl border-b border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
           
-          {/* LEFT: Hamburger Menu Button + Logo */}
+          {/* FAR LEFT: Hamburger Menu Button + Omnidex Logo */}
           <div className="flex items-center gap-3">
             <button
               onClick={() => {
@@ -294,7 +309,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
 
-          {/* RIGHT: Search, Notifications & User Avatar */}
+          {/* FAR RIGHT: Search, Notifications & User Avatar */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSearchOpen(true)}
@@ -309,9 +324,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
             {/* Notification Bell */}
             <Link
-              href="/library"
-              className="p-2 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 text-zinc-400 hover:text-white transition"
-              title="Library Notifications"
+              href="/notifications"
+              className="p-2 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 text-zinc-400 hover:text-white transition relative"
+              title="Notifications"
             >
               <Bell className="w-4 h-4" />
             </Link>
@@ -340,7 +355,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* TOP-LEFT: Browse Catalog Floating Dropdown */}
+      {/* TOP-LEFT: Browse Catalog Floating Dropdown (MangaFlow Style) */}
       {navMenuOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-start pt-16 pl-4 sm:pl-6">
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setNavMenuOpen(false)} />
@@ -359,8 +374,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 className="flex items-center justify-between p-2.5 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
               >
                 <div className="flex items-center gap-2.5">
-                  <Compass className="w-4 h-4 text-indigo-400" />
+                  <Flame className="w-4 h-4 text-rose-500" />
                   <span>Trending Series</span>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+              </Link>
+
+              <Link
+                href="/filter?sort=score"
+                onClick={() => setNavMenuOpen(false)}
+                className="flex items-center justify-between p-2.5 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Star className="w-4 h-4 text-amber-400 fill-amber-400/20" />
+                  <span>Popular Series</span>
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
               </Link>
@@ -371,20 +398,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 className="flex items-center justify-between p-2.5 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
               >
                 <div className="flex items-center gap-2.5">
-                  <SlidersHorizontal className="w-4 h-4 text-zinc-400" />
+                  <SlidersHorizontal className="w-4 h-4 text-indigo-400" />
                   <span>Filter Series (45+ Genres)</span>
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
               </Link>
 
               <Link
-                href="/library"
+                href="/filter?sort=latest"
                 onClick={() => setNavMenuOpen(false)}
                 className="flex items-center justify-between p-2.5 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
               >
                 <div className="flex items-center gap-2.5">
-                  <Bookmark className="w-4 h-4 text-indigo-400" />
-                  <span>My Library Tracker</span>
+                  <Clock className="w-4 h-4 text-cyan-400" />
+                  <span>Latest Releases</span>
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
               </Link>
@@ -407,23 +434,41 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* TOP-RIGHT: User Profile Floating Dropdown */}
+      {/* TOP-RIGHT: User Profile Floating Dropdown (MangaFlow Style) */}
       {userMenuOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-end pt-16 pr-4 sm:pr-6">
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setUserMenuOpen(false)} />
-          <div className="relative w-64 rounded-3xl bg-zinc-900/95 backdrop-blur-2xl border border-white/10 shadow-2xl p-3 space-y-1.5 z-10 animate-in fade-in zoom-in-95">
+          <div className="relative w-64 rounded-3xl bg-zinc-900/95 backdrop-blur-2xl border border-white/10 shadow-2xl p-3 space-y-1 z-10 animate-in fade-in zoom-in-95">
             <div className="px-3 py-2 border-b border-white/10">
               <p className="text-[10px] uppercase font-bold text-zinc-500">Signed In As</p>
               <p className="text-xs font-bold text-zinc-200 truncate">{user?.email}</p>
             </div>
 
             <Link
+              href="/profile"
+              onClick={() => setUserMenuOpen(false)}
+              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-white/5 flex items-center gap-2.5 transition"
+            >
+              <User className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Profile Edit</span>
+            </Link>
+
+            <Link
               href="/library"
               onClick={() => setUserMenuOpen(false)}
-              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-white/5 flex items-center gap-2.5"
+              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-white/5 flex items-center gap-2.5 transition"
             >
               <Bookmark className="w-3.5 h-3.5 text-indigo-400" />
               <span>Library Tracker</span>
+            </Link>
+
+            <Link
+              href="/notifications"
+              onClick={() => setUserMenuOpen(false)}
+              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-white/5 flex items-center gap-2.5 transition"
+            >
+              <Bell className="w-3.5 h-3.5 text-amber-400" />
+              <span>Notifications</span>
             </Link>
 
             <button
@@ -431,11 +476,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 setSyncModalOpen(true);
                 setUserMenuOpen(false);
               }}
-              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-white/5 flex items-center gap-2.5"
+              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-white/5 flex items-center gap-2.5 transition"
             >
-              <RefreshCw className="w-3.5 h-3.5 text-indigo-400" />
-              <span>AniList / JSON Import</span>
+              <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Import / Export</span>
             </button>
+
+            <Link
+              href="/settings"
+              onClick={() => setUserMenuOpen(false)}
+              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-white/5 flex items-center gap-2.5 transition"
+            >
+              <Settings className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Settings</span>
+            </Link>
 
             <button
               onClick={async () => {
@@ -443,7 +497,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 setUserMenuOpen(false);
                 window.location.reload();
               }}
-              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 flex items-center gap-2.5 border-t border-white/5 pt-2"
+              className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-500/10 flex items-center gap-2.5 border-t border-white/5 pt-2 transition"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Sign Out</span>
@@ -452,7 +506,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* ⌘K Search Dialog */}
+      {/* ⌘K Search Dialog with Dynamic Count */}
       {searchOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 p-4">
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md" onClick={() => setSearchOpen(false)} />
@@ -463,7 +517,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 ref={searchInputRef}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search across 4,500+ verified series..."
+                placeholder={totalCatalogCount ? `Search across ${totalCatalogCount.toLocaleString()} verified series...` : 'Search titles across all categories...'}
                 className="w-full bg-transparent text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none"
               />
               <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-[10px] font-mono text-zinc-400 border border-white/10">
@@ -632,14 +686,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Main Content Slot */}
+      {/* Main Content Area */}
       <main className="flex-1">{children}</main>
 
-      {/* Footer */}
+      {/* MangaFlow Style Minimal Footer */}
       <footer className="border-t border-white/[0.06] bg-[#06080d] py-8 text-center text-xs text-zinc-500">
-        <div className="max-w-7xl mx-auto px-4 space-y-1">
-          <p className="font-semibold text-zinc-400">Omnidex — Official Media Tracker & Index</p>
-          <p className="text-[11px]">100% Legal Tracking. Links redirect to verified publishers and licensed platforms.</p>
+        <div className="max-w-7xl mx-auto px-4 space-y-2">
+          <p className="font-semibold text-zinc-400">Omnidex — Official Media Tracker & Index Engine</p>
+          <div className="flex flex-wrap items-center justify-center gap-3 text-zinc-500 text-[11px]">
+            <Link href="/filter" className="hover:text-indigo-400 transition">Filter Directory</Link>
+            <span>•</span>
+            <Link href="/" className="hover:text-indigo-400 transition">Trending</Link>
+            <span>•</span>
+            <Link href="/filter?sort=score" className="hover:text-indigo-400 transition">Popular</Link>
+            <span>•</span>
+            <Link href="/filter?sort=latest" className="hover:text-indigo-400 transition">Latest</Link>
+          </div>
+          <p className="text-[10px] text-zinc-600">100% Legal Tracking. Links redirect to verified publishers and licensed platforms.</p>
         </div>
       </footer>
     </div>
