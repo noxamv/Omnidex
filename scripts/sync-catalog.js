@@ -19,13 +19,13 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const ANILIST_GRAPHQL_ENDPOINT = 'https://graphql.anilist.co';
 
 const ANILIST_PAGE_QUERY = `
-query ($page: Int, $perPage: Int, $type: MediaType, $format: MediaFormat, $sort: [MediaSort]) {
+query ($page: Int, $perPage: Int, $type: MediaType, $format: MediaFormat, $countryOfOrigin: CountryCode, $sort: [MediaSort]) {
   Page(page: $page, perPage: $perPage) {
     pageInfo {
       hasNextPage
       currentPage
     }
-    media(type: $type, format: $format, sort: $sort) {
+    media(type: $type, format: $format, countryOfOrigin: $countryOfOrigin, sort: $sort) {
       id
       idMal
       type
@@ -65,6 +65,13 @@ function determineMediaType(item) {
   return 'manga';
 }
 
+function normalizeStatus(rawStatus) {
+  if (!rawStatus) return 'releasing';
+  const lower = rawStatus.toLowerCase();
+  if (lower === 'completed') return 'finished';
+  return lower;
+}
+
 function sanitizeSynopsis(desc) {
   if (!desc) return null;
   return desc
@@ -93,8 +100,8 @@ async function fetchAniListPageWithRetry(variables, maxRetries = 3) {
       clearTimeout(timeout);
 
       if (res.status === 429) {
-        console.warn(`[AniList 429 Rate Limit] Pausing 5s before retry (Attempt ${attempt}/${maxRetries})...`);
-        await delay(5000);
+        console.warn(`[AniList 429 Rate Limit] Pacing triggered. Pausing 8s before retry (Attempt ${attempt}/${maxRetries})...`);
+        await delay(8000);
         continue;
       }
 
@@ -109,7 +116,7 @@ async function fetchAniListPageWithRetry(variables, maxRetries = 3) {
         console.error(`[AniList Request Failed] Variable state:`, variables, err.message);
         return [];
       }
-      await delay(attempt * 1500);
+      await delay(attempt * 2000);
     }
   }
   return [];
@@ -122,30 +129,50 @@ async function runGlobalIngestion() {
   let collected = [];
 
   // =========================================================================
-  // BATCH 1: MANHWA & WEBTOONS (Korea Origin - High Priority)
-  // Target: 20 Pages * 50 = 1,000 Trending/Top Manhwa
+  // BATCH 1: KOREAN MANHWA & WEBTOONS (KR Origin)
+  // Target: 25 Pages * 50 = 1,250 Popular Korean Series
   // =========================================================================
-  console.log('\n📥 Stage 1: Ingesting Korean Manhwa & Webtoons...');
-  for (let p = 1; p <= 20; p++) {
-    process.stdout.write(`  -> Fetching Manhwa Page ${p}/20... `);
+  console.log('\n📥 Stage 1: Ingesting Korean Manhwa (KR)...');
+  for (let p = 1; p <= 25; p++) {
+    process.stdout.write(`  -> Fetching Manhwa Page ${p}/25... `);
     const pageItems = await fetchAniListPageWithRetry({
       page: p,
       perPage: 50,
       type: 'MANGA',
-      format: 'MANHWA',
+      countryOfOrigin: 'KR',
       sort: ['POPULARITY_DESC'],
     });
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(750); // Respects 90 req/min limit
+    await delay(900); // 900ms protects against AniList 90 req/min rate limit
   }
 
   // =========================================================================
-  // BATCH 2: JAPANESE MANGA (Shonen, Seinen, Shoujo, Josei)
-  // Target: 25 Pages * 50 = 1,250 Trending Japanese Manga
+  // BATCH 2: CHINESE MANHUA (CN Origin)
+  // Target: 15 Pages * 50 = 750 Popular Chinese Series
   // =========================================================================
-  console.log('\n📥 Stage 2: Ingesting Japanese Manga Catalog...');
+  console.log('\n📥 Stage 2: Ingesting Chinese Manhua (CN)...');
+  for (let p = 1; p <= 15; p++) {
+    process.stdout.write(`  -> Fetching Manhua Page ${p}/15... `);
+    const pageItems = await fetchAniListPageWithRetry({
+      page: p,
+      perPage: 50,
+      type: 'MANGA',
+      countryOfOrigin: 'CN',
+      sort: ['POPULARITY_DESC'],
+    });
+    console.log(`[+${pageItems.length} items]`);
+    if (!pageItems.length) break;
+    collected.push(...pageItems);
+    await delay(900);
+  }
+
+  // =========================================================================
+  // BATCH 3: JAPANESE MANGA (JP Origin)
+  // Target: 25 Pages * 50 = 1,250 Manga Series
+  // =========================================================================
+  console.log('\n📥 Stage 3: Ingesting Japanese Manga Catalog (JP)...');
   for (let p = 1; p <= 25; p++) {
     process.stdout.write(`  -> Fetching Manga Page ${p}/25... `);
     const pageItems = await fetchAniListPageWithRetry({
@@ -153,19 +180,20 @@ async function runGlobalIngestion() {
       perPage: 50,
       type: 'MANGA',
       format: 'MANGA',
+      countryOfOrigin: 'JP',
       sort: ['POPULARITY_DESC'],
     });
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(750);
+    await delay(900);
   }
 
   // =========================================================================
-  // BATCH 3: LIGHT NOVELS & WEB NOVELS (Syosetu, Kakuyomu, Royal Road, Qidian)
-  // Target: 20 Pages * 50 = 1,000 Global Web & Light Novels
+  // BATCH 4: LIGHT NOVELS & WEB NOVELS
+  // Target: 20 Pages * 50 = 1,000 Novels
   // =========================================================================
-  console.log('\n📥 Stage 3: Ingesting Light Novels & Web Fiction...');
+  console.log('\n📥 Stage 4: Ingesting Light & Web Novels...');
   for (let p = 1; p <= 20; p++) {
     process.stdout.write(`  -> Fetching Novels Page ${p}/20... `);
     const pageItems = await fetchAniListPageWithRetry({
@@ -178,14 +206,14 @@ async function runGlobalIngestion() {
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(750);
+    await delay(900);
   }
 
   // =========================================================================
-  // BATCH 4: ANIME SIMULCASTS & POPULAR SEASONS
-  // Target: 20 Pages * 50 = 1,000 Anime Series
+  // BATCH 5: ANIME SERIES & SIMULCASTS
+  // Target: 20 Pages * 50 = 1,000 Anime
   // =========================================================================
-  console.log('\n📥 Stage 4: Ingesting Anime Series Catalog...');
+  console.log('\n📥 Stage 5: Ingesting Anime Series...');
   for (let p = 1; p <= 20; p++) {
     process.stdout.write(`  -> Fetching Anime Page ${p}/20... `);
     const pageItems = await fetchAniListPageWithRetry({
@@ -197,13 +225,13 @@ async function runGlobalIngestion() {
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(750);
+    await delay(900);
   }
 
   console.log(`\n📦 Raw Media Harvested: ${collected.length} total entries.`);
 
   // =========================================================================
-  // DATA TRANSFORMATION & GLOBAL DEDUPLICATION
+  // DATA NORMALIZATION & GLOBAL DEDUPLICATION
   // =========================================================================
   const transformedRows = collected.map((item) => {
     const primaryTitle =
@@ -229,7 +257,7 @@ async function runGlobalIngestion() {
       cover_url: item.coverImage?.extraLarge || item.coverImage?.large || null,
       banner_url: item.bannerImage || null,
       synopsis: sanitizeSynopsis(item.description),
-      status: item.status?.toLowerCase() || 'releasing',
+      status: normalizeStatus(item.status),
       format: item.format || null,
       score: item.averageScore ? parseFloat((item.averageScore / 10).toFixed(1)) : null,
       total_units: item.episodes || item.chapters || 0,
@@ -239,12 +267,11 @@ async function runGlobalIngestion() {
     };
   });
 
-  // Deduplicate rows by distinct ID
   const uniqueCatalog = Array.from(new Map(transformedRows.map((r) => [r.id, r])).values());
   console.log(`✨ Deduplicated to ${uniqueCatalog.length} unique catalog records.`);
 
   // =========================================================================
-  // CHUNKED DATABASE UPSERT (500 Rows/Batch - Avoids PostgREST Payload Limits)
+  // CHUNKED DATABASE UPSERT (500 Rows/Batch)
   // =========================================================================
   const CHUNK_SIZE = 500;
   let savedCount = 0;
