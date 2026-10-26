@@ -52,7 +52,7 @@ export default function UserLibraryPage() {
           const guestLibrary = JSON.parse(localStorage.getItem('omnidex_guest_library') || '[]');
           if (guestLibrary.length > 0) {
             const guestIds = guestLibrary.map((g: any) => g.id);
-            const { data } = await supabase
+            const { data: guestMedia } = await supabase
               .from('media_catalog')
               .select('*')
               .in('id', guestIds);
@@ -107,7 +107,7 @@ export default function UserLibraryPage() {
 
   const filteredItems = items
     .filter((i) => activeFilter === 'all' || i.user_status === activeFilter)
-    .filter((i) => !searchQuery.trim() || i.title_primary.toLowerCase().includes(searchQuery.toLowerCase().trim()));
+    .filter((i) => !searchQuery.trim() || (i.title_primary && i.title_primary.toLowerCase().includes(searchQuery.toLowerCase().trim())));
 
   const totalChaptersConsumed = items.reduce((acc, cur) => acc + (cur.user_progress || 0), 0);
   const completedSeriesCount = items.filter((i) => i.user_status === 'completed').length;
