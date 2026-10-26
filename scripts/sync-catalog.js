@@ -99,8 +99,8 @@ async function fetchAniListPageWithRetry(variables, maxRetries = 3) {
       clearTimeout(timeout);
 
       if (res.status === 429) {
-        console.warn(`[AniList 429 Rate Limit] Pacing triggered. Pausing 8s before retry (Attempt ${attempt}/${maxRetries})...`);
-        await delay(8000);
+        console.warn(`[AniList 429 Rate Limit] Pacing triggered. Pausing 10s before retry (Attempt ${attempt}/${maxRetries})...`);
+        await delay(10000);
         continue;
       }
 
@@ -113,7 +113,7 @@ async function fetchAniListPageWithRetry(variables, maxRetries = 3) {
         console.error(`[AniList Request Failed] Variable state:`, variables, err.message);
         return [];
       }
-      await delay(attempt * 2000);
+      await delay(attempt * 2500);
     }
   }
   return [];
@@ -139,13 +139,17 @@ async function runGlobalIngestion() {
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(950);
+    await delay(1000);
   }
+
+  // 5.5-Second Cooldown: Drains AniList 60-second rolling request bucket
+  console.log('⏳ Cooldown 5.5s to reset AniList rate limit bucket...');
+  await delay(5500);
 
   // 2. Chinese Manhua (CN Origin)
   console.log('\n📥 Stage 2: Ingesting Chinese Manhua (CN)...');
-  for (let p = 1; p <= 15; p++) {
-    process.stdout.write(`  -> Fetching Manhua Page ${p}/15... `);
+  for (let p = 1; p <= 20; p++) {
+    process.stdout.write(`  -> Fetching Manhua Page ${p}/20... `);
     const pageItems = await fetchAniListPageWithRetry({
       page: p,
       perPage: 50,
@@ -156,8 +160,11 @@ async function runGlobalIngestion() {
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(950);
+    await delay(1000);
   }
+
+  console.log('⏳ Cooldown 5.5s to reset AniList rate limit bucket...');
+  await delay(5500);
 
   // 3. Japanese Manga (JP Origin)
   console.log('\n📥 Stage 3: Ingesting Japanese Manga (JP)...');
@@ -174,8 +181,11 @@ async function runGlobalIngestion() {
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(950);
+    await delay(1000);
   }
+
+  console.log('⏳ Cooldown 5.5s to reset AniList rate limit bucket...');
+  await delay(5500);
 
   // 4. Light Novels & Web Novels
   console.log('\n📥 Stage 4: Ingesting Novels...');
@@ -191,13 +201,16 @@ async function runGlobalIngestion() {
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(950);
+    await delay(1000);
   }
 
-  // 5. Anime Series
+  console.log('⏳ Cooldown 5.5s to reset AniList rate limit bucket...');
+  await delay(5500);
+
+  // 5. Anime Series & Simulcasts
   console.log('\n📥 Stage 5: Ingesting Anime Series...');
-  for (let p = 1; p <= 20; p++) {
-    process.stdout.write(`  -> Fetching Anime Page ${p}/20... `);
+  for (let p = 1; p <= 25; p++) {
+    process.stdout.write(`  -> Fetching Anime Page ${p}/25... `);
     const pageItems = await fetchAniListPageWithRetry({
       page: p,
       perPage: 50,
@@ -207,7 +220,7 @@ async function runGlobalIngestion() {
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(950);
+    await delay(1000);
   }
 
   console.log(`\n📦 Raw Media Harvested: ${collected.length} total entries.`);
