@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabase';
+import OmnidexLogo from './OmnidexLogo';
 import { 
   Menu, Search, X, LogIn, LogOut, Mail, 
   Bookmark, SlidersHorizontal, RefreshCw, 
@@ -15,7 +16,7 @@ import {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
-  // Dialog State (Popups rather than full sheets)
+  // Dialog State
   const [menuPopupOpen, setMenuPopupOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -268,9 +269,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Top Navbar */}
       <header className="sticky top-0 z-40 w-full bg-[#06080d]/80 backdrop-blur-xl border-b border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
-          {/* Logo & Navigation - Pure Clean Brand Text */}
+          {/* Logo & Brand Title */}
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center group">
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <OmnidexLogo className="w-7 h-7 sm:w-8 sm:h-8 group-hover:scale-105 transition-transform duration-300" />
               <span className="font-black text-lg sm:text-xl tracking-tight text-white group-hover:text-indigo-400 transition">
                 Omnidex
               </span>
