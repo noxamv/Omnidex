@@ -1,18 +1,16 @@
 {
-  "name": "Omnidex — Official Media Tracker",
+  "name": "Omnidex Tracker",
   "short_name": "Omnidex",
-  "description": "Discover and track Asian pop culture media legally.",
+  "description": "Track anime, manhwa, manga, and light novels across verified legal platforms.",
   "start_url": "/",
-  "id": "/",
-  "scope": "/",
   "display": "standalone",
-  "background_color": "#07090e",
-  "theme_color": "#07090e",
-  "orientation": "portrait-primary",
+  "background_color": "#06080d",
+  "theme_color": "#06080d",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "/placeholder.svg",
-      "sizes": "any",
+      "sizes": "192x192 512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
