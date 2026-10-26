@@ -27,7 +27,7 @@ export default function Spotlight({
   if (!item) return null;
 
   return (
-    <div className="relative w-full rounded-3xl overflow-hidden bg-[#0c101a] border border-white/[0.08] shadow-2xl p-4 sm:p-5 min-h-[195px] sm:min-h-[215px] flex flex-col justify-between group">
+    <div className="relative w-full rounded-3xl overflow-hidden bg-[#0c101a] border border-white/[0.08] shadow-2xl p-4 min-h-[185px] sm:min-h-[205px] flex flex-col justify-between group">
       {/* Background Poster Blur */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <img
@@ -40,41 +40,50 @@ export default function Spotlight({
       </div>
 
       {/* Main Content Layout */}
-      <div className="relative z-10 flex items-start justify-between gap-4 flex-1">
-        {/* Left Information */}
-        <div className="flex-1 min-w-0 flex flex-col justify-between h-full space-y-2">
-          {/* Badges */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-              SPOTLIGHT #{index + 1}
-            </span>
-            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-300 border border-white/5">
-              {item.media_type}
-            </span>
-            {item.score && (
-              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 flex items-center gap-0.5">
-                <Star className="w-2.5 h-2.5 fill-amber-400" /> {item.score}
+      <div className="relative z-10 flex items-stretch justify-between gap-4 flex-1">
+        {/* Left Information Column */}
+        <div className="flex-1 min-w-0 flex flex-col justify-between">
+          <div className="space-y-1.5">
+            {/* Badges */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                SPOTLIGHT #{index + 1}
               </span>
-            )}
-          </div>
+              <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-300 border border-white/5">
+                {item.media_type}
+              </span>
+              {item.score && (
+                <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 flex items-center gap-0.5">
+                  <Star className="w-2.5 h-2.5 fill-amber-400" /> {item.score}
+                </span>
+              )}
+            </div>
 
-          {/* Title & Synopsis */}
-          <div className="space-y-1">
-            <Link href={`/series/${item.id}`} className="block">
-              <h1 className="text-base sm:text-xl font-black text-white hover:text-indigo-400 transition truncate leading-tight">
-                {item.title_primary}
-              </h1>
-            </Link>
-            <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed max-w-lg font-normal">
+            {/* Primary & Secondary Title */}
+            <div>
+              <Link href={`/series/${item.id}`} className="block">
+                <h1 className="text-base sm:text-lg font-black text-white hover:text-indigo-400 transition truncate leading-tight">
+                  {item.title_primary}
+                </h1>
+              </Link>
+              {item.title_secondary && (
+                <p className="text-[11px] text-zinc-400 truncate font-medium">
+                  {item.title_secondary}
+                </p>
+              )}
+            </div>
+
+            {/* Expanded Synopsis Breathing Room */}
+            <p className="text-xs text-zinc-400 line-clamp-3 leading-relaxed max-w-lg font-normal">
               {item.synopsis || 'Explore official global release dates, reading milestones, and verified publisher licenses.'}
             </p>
           </div>
 
-          {/* Compact Button at Bottom-Left */}
-          <div className="pt-1">
+          {/* Compact Button Anchored to Bottom-Left */}
+          <div className="pt-2">
             <Link
               href={`/series/${item.id}`}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-600/30 transition active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-600/30 transition active:scale-95"
             >
               <span>Track Series</span>
               <ArrowRight className="w-3 h-3" />
@@ -85,7 +94,7 @@ export default function Spotlight({
         {/* Right Poster */}
         <Link
           href={`/series/${item.id}`}
-          className="w-24 sm:w-32 aspect-[2/3] flex-shrink-0 rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-zinc-900 group-hover:scale-105 transition duration-300"
+          className="w-24 sm:w-28 aspect-[2/3] flex-shrink-0 rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-zinc-900 group-hover:scale-105 transition duration-300 self-center"
         >
           <img
             src={item.cover_url || '/placeholder.svg'}
@@ -95,7 +104,7 @@ export default function Spotlight({
         </Link>
       </div>
 
-      {/* MangaFlow Style Centered Dots at Very Bottom */}
+      {/* MangaFlow Style Centered Minimal Indicator Dots */}
       {onSelectIndex && (
         <div className="relative z-10 flex items-center justify-center gap-1.5 pt-2">
           {Array.from({ length: total }).map((_, idx) => (
@@ -104,7 +113,7 @@ export default function Spotlight({
               onClick={() => onSelectIndex(idx)}
               aria-label={`Jump to spotlight slide ${idx + 1}`}
               className={`h-1 rounded-full transition-all duration-300 ${
-                index === idx ? 'w-6 bg-indigo-500' : 'w-1.5 bg-zinc-700 hover:bg-zinc-500'
+                index === idx ? 'w-5 bg-indigo-500' : 'w-1.5 bg-zinc-700 hover:bg-zinc-500'
               }`}
             />
           ))}
