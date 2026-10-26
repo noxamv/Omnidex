@@ -100,7 +100,7 @@ async function fetchAniListPageWithRetry(variables, maxRetries = 3) {
       clearTimeout(timeout);
 
       if (res.status === 429) {
-        console.warn(`[AniList 429 Rate Limit] Pacing triggered. Pausing 8s before retry (Attempt ${attempt}/${maxRetries})...`);
+        console.warn(`[AniList 429 Rate Limit] Pausing 8s before retry (Attempt ${attempt}/${maxRetries})...`);
         await delay(8000);
         continue;
       }
@@ -145,7 +145,7 @@ async function runGlobalIngestion() {
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(900); // 900ms protects against AniList 90 req/min rate limit
+    await delay(950); // 950ms guarantees safety under 90 req/min limit
   }
 
   // =========================================================================
@@ -165,7 +165,7 @@ async function runGlobalIngestion() {
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(900);
+    await delay(950);
   }
 
   // =========================================================================
@@ -186,7 +186,7 @@ async function runGlobalIngestion() {
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(900);
+    await delay(950);
   }
 
   // =========================================================================
@@ -206,7 +206,7 @@ async function runGlobalIngestion() {
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(900);
+    await delay(950);
   }
 
   // =========================================================================
@@ -225,7 +225,7 @@ async function runGlobalIngestion() {
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(900);
+    await delay(950);
   }
 
   console.log(`\n📦 Raw Media Harvested: ${collected.length} total entries.`);
