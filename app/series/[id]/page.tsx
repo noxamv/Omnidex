@@ -1,37 +1,36 @@
+// app/series/[id]/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabase';
 import { 
   ArrowLeft, ExternalLink, Star, Plus, Minus, Bookmark, 
-  Globe, ChevronDown, ChevronUp, Flag, X, CheckCheck 
+  Globe, ChevronDown, ChevronUp, Flag, X, CheckCheck, 
+  Share2, Layers, Sparkles
 } from 'lucide-react';
 
 const PLATFORM_LANGUAGES: Record<string, string> = {
-  crunchyroll: 'English Sub/Dub (Multi)',
-  netflix: 'Multi-Language (Sub/Dub)',
-  webtoon: 'English, Korean, French, Spanish',
-  'naver webtoon': 'Korean (Official Raw)',
-  tapas: 'English',
-  tappytoon: 'English, French, German',
-  'royal road': 'English (Original Web Novel)',
-  webnovel: 'English & Global Multi',
-  wattpad: 'English & Global',
-  'manga plus': 'English, Spanish, French',
-  bookwalker: 'English & Japanese',
-  'j-novel club': 'English (Light Novel)',
-  'yen press': 'English',
-  hidive: 'English Sub/Dub',
-  youtube: 'Multi-sub (Muse Asia / Ani-One)'
+  crunchyroll: 'Official Streaming (Sub/Dub)',
+  netflix: 'Official Streaming (Multi)',
+  webtoon: 'Official Webtoon (English/Global)',
+  'naver webtoon': 'Official Raw (Korean)',
+  tapas: 'Official Translation (English)',
+  tappytoon: 'Official Translation (English/EU)',
+  'royal road': 'Author Original Web Novel',
+  webnovel: 'Official Publisher Serialization',
+  'manga plus': 'Official Shueisha Simulpub',
+  bookwalker: 'Official Digital E-Book (Kadokawa)',
+  'j-novel club': 'Official Light Novel Translation',
+  'yen press': 'Official Licensed Edition',
 };
 
-function getPlatformLanguage(siteName: string): string {
+function getPlatformBadge(siteName: string): string {
   const lower = (siteName || '').toLowerCase();
   for (const [key, lang] of Object.entries(PLATFORM_LANGUAGES)) {
     if (lower.includes(key)) return lang;
   }
-  return 'English / Original';
+  return 'Official Licensed Platform';
 }
 
 export default function SeriesDetailPage() {
@@ -47,19 +46,17 @@ export default function SeriesDetailPage() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [progress, setProgress] = useState<number>(0);
   const [status, setStatus] = useState<string>('plan_to_read');
-  const [showNumberInput, setShowNumberInput] = useState(false);
+  const [isEditingInput, setIsEditingInput] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [stepIncrement, setStepIncrement] = useState(1);
 
   const [reportOpen, setReportOpen] = useState(false);
   const [reportType, setReportType] = useState('broken_link');
   const [reportDetails, setReportDetails] = useState('');
   const [reportSubmitted, setReportSubmitted] = useState(false);
 
-  useEffect(() => {
-    const savedStep = localStorage.getItem('omnidex_step_increment');
-    if (savedStep) setStepIncrement(parseInt(savedStep, 10) || 1);
+  const [, startTransition] = useTransition();
 
+  useEffect(() => {
     async function loadSeriesAndUserData() {
       if (!id) return;
       setLoading(true);
@@ -83,7 +80,7 @@ export default function SeriesDetailPage() {
             .select('*')
             .eq('user_id', currentUser.id)
             .eq('media_id', data.id)
-            .single();
+            .maybeSingle();
 
           if (trackData) {
             setProgress(trackData.progress || 0);
@@ -99,7 +96,7 @@ export default function SeriesDetailPage() {
               setStatus(local.status || 'plan_to_read');
               setIsFollowing(true);
             }
-          } catch (e) {}
+          } catch {}
         }
       }
       setLoading(false);
@@ -107,88 +104,76 @@ export default function SeriesDetailPage() {
     loadSeriesAndUserData();
   }, [id]);
 
-  const showToast = (msg: string) => {
+  const triggerToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
+    setTimeout(() => setToastMessage(null), 2800);
   };
 
-  const syncGuestStorage = (nextProgress: number, nextStatus: string, nextFollow: boolean) => {
+  const syncGuestStorage = (nextProg: number, nextStatus: string, nextFollow: boolean) => {
     try {
       let guestLibrary = JSON.parse(localStorage.getItem('omnidex_guest_library') || '[]');
       if (nextFollow) {
-        const existingIdx = guestLibrary.findIndex((g: any) => g.id === series.id);
-        const entry = { id: series.id, progress: nextProgress, status: nextStatus };
-        if (existingIdx >= 0) guestLibrary[existingIdx] = entry;
+        const idx = guestLibrary.findIndex((g: any) => g.id === series.id);
+        const entry = { id: series.id, progress: nextProg, status: nextStatus };
+        if (idx >= 0) guestLibrary[idx] = entry;
         else guestLibrary.push(entry);
       } else {
         guestLibrary = guestLibrary.filter((g: any) => g.id !== series.id);
       }
       localStorage.setItem('omnidex_guest_library', JSON.stringify(guestLibrary));
-    } catch (e) {}
+    } catch {}
   };
 
-  // Ceiling clamp logic
-  const handleProgressChange = async (newVal: number) => {
-    const totalUnits = series?.total_units || 0;
-    const ceiling = totalUnits > 0 ? totalUnits : 99999;
-    
-    // Strict clamp
-    const finalVal = Math.min(Math.max(0, newVal), ceiling);
-    setProgress(finalVal);
-
-    if (totalUnits > 0 && newVal >= totalUnits) {
-      showToast(`Reached total limit (${totalUnits} ${series.media_type === 'anime' ? 'episodes' : 'chapters'})`);
-    }
-
+  const commitTrackerUpdate = async (nextProg: number, nextStatus: string, nextFollow: boolean) => {
     if (user) {
       await supabase.from('user_tracker').upsert({
         user_id: user.id,
         media_id: series.id,
-        progress: finalVal,
-        status,
-        is_following: isFollowing,
+        progress: nextProg,
+        status: nextStatus,
+        is_following: nextFollow,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id,media_id' });
     } else {
-      syncGuestStorage(finalVal, status, isFollowing);
+      syncGuestStorage(nextProg, nextStatus, nextFollow);
     }
   };
 
-  const handleStatusChange = async (newStatus: string) => {
+  const handleProgressChange = (newVal: number) => {
+    const total = series?.total_units || 0;
+    const clamped = Math.max(0, total > 0 ? Math.min(newVal, total) : newVal);
+
+    setProgress(clamped);
+
+    let nextStatus = status;
+    if (total > 0 && clamped >= total) {
+      nextStatus = 'completed';
+      setStatus('completed');
+      triggerToast('🎉 Completed!');
+    } else if (clamped > 0 && status === 'plan_to_read') {
+      nextStatus = 'reading';
+      setStatus('reading');
+    }
+
+    startTransition(() => {
+      commitTrackerUpdate(clamped, nextStatus, isFollowing);
+    });
+  };
+
+  const handleStatusChange = (newStatus: string) => {
     setStatus(newStatus);
-
-    if (user) {
-      await supabase.from('user_tracker').upsert({
-        user_id: user.id,
-        media_id: series.id,
-        progress,
-        status: newStatus,
-        is_following: isFollowing,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id,media_id' });
-    } else {
-      syncGuestStorage(progress, newStatus, isFollowing);
-    }
+    startTransition(() => {
+      commitTrackerUpdate(progress, newStatus, isFollowing);
+    });
   };
 
-  const toggleFollow = async () => {
+  const toggleFollow = () => {
     const nextState = !isFollowing;
     setIsFollowing(nextState);
-
-    if (user) {
-      await supabase.from('user_tracker').upsert({
-        user_id: user.id,
-        media_id: series.id,
-        progress,
-        status,
-        is_following: nextState,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id,media_id' });
-    } else {
-      syncGuestStorage(progress, status, nextState);
-    }
-
-    showToast(nextState ? 'Added to Library' : 'Removed from Library');
+    triggerToast(nextState ? 'Added to Tracking Library' : 'Removed from Library');
+    startTransition(() => {
+      commitTrackerUpdate(progress, status, nextState);
+    });
   };
 
   const submitReport = async (e: React.FormEvent) => {
@@ -204,130 +189,145 @@ export default function SeriesDetailPage() {
       setReportSubmitted(false);
       setReportOpen(false);
       setReportDetails('');
-    }, 2000);
+    }, 1800);
   };
 
   if (loading) {
-    return <div className="max-w-3xl mx-auto px-4 py-24 text-center text-slate-500 text-xs">Loading series catalog...</div>;
+    return (
+      <div className="min-h-screen bg-[#06080d] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin" />
+          <span className="text-xs font-semibold text-zinc-500 tracking-wider uppercase">Loading verified metadata...</span>
+        </div>
+      </div>
+    );
   }
 
   if (!series) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-24 text-center space-y-3">
-        <p className="text-slate-400 text-sm">Series not found.</p>
-        <button onClick={() => router.push('/')} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold">
-          Return Home
+      <div className="min-h-screen bg-[#06080d] flex flex-col items-center justify-center p-4">
+        <p className="text-zinc-400 text-sm mb-4">Series not cataloged or temporarily unavailable.</p>
+        <button onClick={() => router.push('/')} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition">
+          Return to Discover
         </button>
       </div>
     );
   }
 
-  // Deduplicate official sources by URL
   const rawLinks = (series.official_links as any[]) || [];
-  const uniqueMap = new Map();
-  rawLinks.forEach((src) => {
-    if (src && src.url && !uniqueMap.has(src.url)) {
-      uniqueMap.set(src.url, src);
-    }
-  });
-  const officialLinks = Array.from(uniqueMap.values());
+  const uniqueLinks = Array.from(new Map(rawLinks.filter(l => l && l.url).map(l => [l.url, l])).values());
   const totalUnits = series.total_units || 0;
-  const isAtLimit = totalUnits > 0 && progress >= totalUnits;
+  const isMaxProgress = totalUnits > 0 && progress >= totalUnits;
+  const completionPercentage = totalUnits > 0 ? Math.min(100, Math.round((progress / totalUnits) * 100)) : 0;
 
   return (
-    <div className="min-h-screen bg-[#07090e] pb-20">
-      {/* Banner */}
-      <div className="relative w-full h-44 sm:h-64 overflow-hidden bg-slate-900 border-b border-slate-800">
+    <div className="min-h-screen bg-[#06080d] text-zinc-100 pb-28 selection:bg-indigo-500/30">
+      <div className="relative w-full h-56 sm:h-80 overflow-hidden bg-zinc-950 border-b border-white/[0.06]">
         <img
           src={series.banner_url || series.cover_url}
           alt=""
-          className="w-full h-full object-cover filter blur-[2px] opacity-35 scale-105"
+          className="w-full h-full object-cover filter blur-[8px] opacity-25 scale-110"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#07090e] via-[#07090e]/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#06080d] via-[#06080d]/70 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#06080d]/80 via-transparent to-[#06080d]/80" />
 
-        <button
-          onClick={() => router.back()}
-          className="absolute top-4 left-4 p-2 rounded-xl bg-black/60 backdrop-blur-md text-white hover:bg-black/90 transition z-20 flex items-center gap-1.5 text-xs font-bold"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back</span>
-        </button>
+        <div className="absolute top-5 left-4 sm:left-8 right-4 sm:right-8 flex items-center justify-between z-20">
+          <button
+            onClick={() => router.back()}
+            className="p-2.5 rounded-xl bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/10 text-zinc-300 hover:text-white transition flex items-center gap-2 text-xs font-semibold"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Back</span>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                if (navigator.share) {
+                  navigator.share({ title: series.title_primary, url: window.location.href });
+                } else {
+                  navigator.clipboard.writeText(window.location.href);
+                  triggerToast('Link copied to clipboard');
+                }
+              }}
+              className="p-2.5 rounded-xl bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/10 text-zinc-300 hover:text-white transition"
+              title="Share"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setReportOpen(true)}
+              className="p-2.5 rounded-xl bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/10 text-zinc-300 hover:text-white transition"
+              title="Report issue"
+            >
+              <Flag className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 -mt-20 relative z-10 space-y-4">
-        {/* Core Info */}
-        <div className="flex gap-4 items-start">
-          <div className="w-28 sm:w-36 aspect-[2/3] rounded-xl overflow-hidden shadow-2xl border border-slate-700 bg-slate-900 flex-shrink-0">
-            <img src={series.cover_url || '/placeholder.svg'} alt="" className="w-full h-full object-cover" />
+      <div className="max-w-4xl mx-auto px-4 sm:px-8 -mt-24 sm:-mt-32 relative z-10 space-y-6">
+        <div className="flex flex-col sm:flex-row gap-6 items-start">
+          <div className="w-32 sm:w-44 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl shadow-black/80 border border-white/10 bg-zinc-900 flex-shrink-0 relative group">
+            <img src={series.cover_url || '/placeholder.svg'} alt={series.title_primary} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2.5">
+              <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">{series.format || series.media_type}</span>
+            </div>
           </div>
 
-          <div className="flex-1 min-w-0 space-y-1.5 pt-6 sm:pt-10">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+          <div className="flex-1 min-w-0 space-y-3 pt-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                 {series.media_type}
               </span>
-              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+              <span className="text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-lg bg-zinc-800/80 text-zinc-300 border border-white/5">
                 {series.status}
               </span>
               {series.score && (
-                <span className="flex items-center gap-1 text-xs font-black text-amber-400">
-                  <Star className="w-3.5 h-3.5 fill-amber-400" /> {series.score}
+                <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" /> {series.score}
                 </span>
               )}
             </div>
 
-            <h1 className="text-lg sm:text-2xl font-black text-white leading-tight">
+            <h1 className="text-xl sm:text-3xl font-black text-white tracking-tight leading-tight">
               {series.title_primary}
             </h1>
 
-            {/* Follow & Report Buttons */}
-            <div className="flex items-center gap-2 pt-1">
+            {series.title_secondary && (
+              <p className="text-xs font-medium text-zinc-400 truncate">
+                {series.title_secondary}
+              </p>
+            )}
+
+            <div className="flex items-center gap-3 pt-2">
               <button
                 onClick={toggleFollow}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 active:scale-95 ${
                   isFollowing
-                    ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
-                    : 'bg-indigo-600 text-white hover:bg-indigo-500'
+                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30'
                 }`}
               >
-                <Bookmark className="w-3.5 h-3.5" />
-                <span>{isFollowing ? 'Following' : '+ Follow'}</span>
-              </button>
-
-              <button
-                onClick={() => setReportOpen(true)}
-                className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition"
-                title="Report issue"
-              >
-                <Flag className="w-3.5 h-3.5" />
+                <Bookmark className={`w-3.5 h-3.5 ${isFollowing ? 'fill-emerald-400' : ''}`} />
+                <span>{isFollowing ? 'Tracking in Library' : '+ Add to Library'}</span>
               </button>
             </div>
           </div>
         </div>
 
-        {/* Truncated Synopsis */}
-        <div className="bg-[#0e121b] p-4 rounded-xl border border-slate-800 space-y-2">
-          <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Synopsis</h2>
-          <p className={`text-xs text-slate-300 leading-relaxed ${synopsisExpanded ? '' : 'line-clamp-3'}`}>
-            {series.synopsis}
-          </p>
-          <button
-            onClick={() => setSynopsisExpanded(!synopsisExpanded)}
-            className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-0.5 pt-0.5"
-          >
-            <span>{synopsisExpanded ? 'Show Less' : 'Read More'}</span>
-            {synopsisExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
-        </div>
-
-        {/* Progress Tracker with Strict Limit & Unit Counter */}
-        <div className="bg-[#0e121b] p-4 rounded-xl border border-slate-800 space-y-3">
+        {/* Progress Tracker Card */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-zinc-900/60 backdrop-blur-xl border border-white/[0.08] shadow-2xl space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-300">Track Progress</h2>
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-indigo-400" />
+              <h2 className="text-xs font-black uppercase tracking-wider text-zinc-200">Reading Progress</h2>
+            </div>
+
             <select
               value={status}
               onChange={(e) => handleStatusChange(e.target.value)}
-              className="bg-[#111622] border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-semibold"
+              className="bg-zinc-800/80 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-indigo-500 font-bold transition"
             >
               <option value="reading">Reading / Watching</option>
               <option value="completed">Completed</option>
@@ -337,56 +337,60 @@ export default function SeriesDetailPage() {
             </select>
           </div>
 
-          <div className="flex items-center justify-between bg-[#111622] px-3.5 py-2.5 rounded-xl border border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-300">
-                {series.media_type === 'anime' ? 'Episodes Watched:' : 'Chapters Read:'}
-              </span>
-              {isAtLimit && (
-                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-0.5">
-                  <CheckCheck className="w-3 h-3" /> Max
-                </span>
-              )}
+          {totalUnits > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-[11px] font-bold text-zinc-400">
+                <span>{completionPercentage}% complete</span>
+                <span>{progress} / {totalUnits} units</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-zinc-800 overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 transition-all duration-300 rounded-full"
+                  style={{ width: `${completionPercentage}%` }}
+                />
+              </div>
             </div>
+          )}
+
+          <div className="flex items-center justify-between bg-zinc-950/60 px-4 py-3 rounded-xl border border-white/5">
+            <span className="text-xs font-semibold text-zinc-400">
+              {series.media_type === 'anime' ? 'Episodes Completed' : 'Chapters Read'}
+            </span>
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handleProgressChange(progress - stepIncrement)}
-                className="p-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
+                onClick={() => handleProgressChange(progress - 1)}
+                disabled={progress <= 0}
+                className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed text-zinc-200 flex items-center justify-center transition active:scale-95"
               >
                 <Minus className="w-3.5 h-3.5" />
               </button>
 
-              {showNumberInput ? (
+              {isEditingInput ? (
                 <input
                   type="number"
                   inputMode="numeric"
-                  pattern="[0-9]*"
                   autoFocus
                   defaultValue={progress}
                   onBlur={(e) => {
                     handleProgressChange(parseInt(e.target.value, 10) || 0);
-                    setShowNumberInput(false);
+                    setIsEditingInput(false);
                   }}
-                  className="w-14 text-center text-sm font-black text-indigo-400 bg-slate-900 border border-indigo-500 rounded px-1"
+                  className="w-16 text-center text-sm font-black text-indigo-400 bg-zinc-900 border border-indigo-500 rounded-lg py-1 focus:outline-none"
                 />
               ) : (
                 <button
-                  onClick={() => setShowNumberInput(true)}
-                  className={`w-16 text-center text-sm font-black hover:underline ${isAtLimit ? 'text-emerald-400 font-extrabold' : 'text-indigo-400'}`}
+                  onClick={() => setIsEditingInput(true)}
+                  className="w-20 text-center font-black text-sm text-indigo-400 hover:text-indigo-300 transition"
                 >
                   {progress} {totalUnits > 0 ? `/ ${totalUnits}` : ''}
                 </button>
               )}
 
               <button
-                onClick={() => handleProgressChange(progress + stepIncrement)}
-                disabled={isAtLimit}
-                className={`p-1 rounded-lg text-white transition ${
-                  isAtLimit 
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                    : 'bg-indigo-600 hover:bg-indigo-500'
-                }`}
+                onClick={() => handleProgressChange(progress + 1)}
+                disabled={isMaxProgress}
+                className="w-8 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center justify-center transition active:scale-95 shadow-md shadow-indigo-600/30"
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
@@ -394,96 +398,66 @@ export default function SeriesDetailPage() {
           </div>
         </div>
 
-        {/* Deduplicated Official Sources with Language Badges */}
-        <div className="space-y-2">
-          <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
-            Official Sources & Translations
-          </h2>
+        {/* Synopsis */}
+        <div className="p-5 rounded-2xl bg-zinc-900/40 border border-white/[0.06] space-y-2">
+          <h2 className="text-xs font-black uppercase tracking-wider text-zinc-400">Synopsis</h2>
+          <p className={`text-xs sm:text-sm text-zinc-300 leading-relaxed font-normal ${synopsisExpanded ? '' : 'line-clamp-3'}`}>
+            {series.synopsis || 'No official synopsis provided for this title.'}
+          </p>
+          {series.synopsis && series.synopsis.length > 180 && (
+            <button
+              onClick={() => setSynopsisExpanded(!synopsisExpanded)}
+              className="text-xs font-black text-indigo-400 hover:text-indigo-300 flex items-center gap-1 pt-1"
+            >
+              <span>{synopsisExpanded ? 'Show Less' : 'Read Full Overview'}</span>
+              {synopsisExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+          )}
+        </div>
 
-          <div className="space-y-1.5">
-            {officialLinks.map((src: any) => {
-              const langBadge = getPlatformLanguage(src.site);
-              return (
+        {/* Verified Legal Publishers */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            <h2 className="text-xs font-black uppercase tracking-wider text-zinc-300">
+              Verified Legal Publishers & Streaming
+            </h2>
+          </div>
+
+          {uniqueLinks.length === 0 ? (
+            <div className="p-6 rounded-2xl bg-zinc-900/20 border border-dashed border-white/10 text-center">
+              <p className="text-xs text-zinc-500">Official license indexing in progress.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {uniqueLinks.map((src: any) => (
                 <a
                   key={src.url}
                   href={`/api/track?mediaId=${encodeURIComponent(series.id)}&target=${encodeURIComponent(src.url)}&step=1`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between py-2.5 px-3.5 rounded-xl bg-[#0e121b] hover:bg-[#131a29] border border-slate-800/80 hover:border-indigo-500/50 transition group"
+                  className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-900/60 hover:bg-zinc-850 border border-white/[0.06] hover:border-indigo-500/40 transition group"
                 >
                   <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-slate-200 group-hover:text-indigo-400 transition block">
+                    <span className="text-xs font-black text-zinc-200 group-hover:text-indigo-400 transition block">
                       {src.site}
                     </span>
-                    <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                      <Globe className="w-2.5 h-2.5 text-indigo-400" />
-                      <span>{langBadge}</span>
+                    <span className="text-[10px] text-zinc-400 flex items-center gap-1">
+                      <Globe className="w-3 h-3 text-indigo-400/80" />
+                      <span>{getPlatformBadge(src.site)}</span>
                     </span>
                   </div>
-                  <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-400 transition" />
+                  <ExternalLink className="w-4 h-4 text-zinc-500 group-hover:text-indigo-400 transition" />
                 </a>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {toastMessage && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 border border-slate-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl z-50 animate-fade-in">
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-zinc-900/90 backdrop-blur-xl border border-white/15 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl z-50">
           {toastMessage}
-        </div>
-      )}
-
-      {/* Report Modal */}
-      {reportOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setReportOpen(false)} />
-          <div className="relative w-full max-w-sm bg-[#0e121b] border border-slate-800 rounded-2xl p-5 shadow-2xl z-10 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-              <h3 className="font-bold text-sm text-white">Report Series Issue</h3>
-              <button onClick={() => setReportOpen(false)} className="text-slate-400 hover:text-white">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {reportSubmitted ? (
-              <p className="text-xs text-emerald-400 font-bold py-3 text-center">Report submitted! Thank you.</p>
-            ) : (
-              <form onSubmit={submitReport} className="space-y-3 text-xs">
-                <div>
-                  <label className="text-slate-400 block mb-1">Issue Type:</label>
-                  <select
-                    value={reportType}
-                    onChange={(e) => setReportType(e.target.value)}
-                    className="w-full bg-[#111622] border border-slate-700 rounded-lg p-2 text-slate-200"
-                  >
-                    <option value="broken_link">Broken / Dead Source Link</option>
-                    <option value="wrong_chapters">Incorrect Chapter / Episode Count</option>
-                    <option value="incorrect_info">Wrong Cover / Title / Synopsis</option>
-                    <option value="other">Other Issue</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-slate-400 block mb-1">Details (Optional):</label>
-                  <textarea
-                    rows={3}
-                    value={reportDetails}
-                    onChange={(e) => setReportDetails(e.target.value)}
-                    placeholder="Describe what needs to be fixed..."
-                    className="w-full bg-[#111622] border border-slate-700 rounded-lg p-2 text-slate-200"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 font-bold text-white rounded-lg transition"
-                >
-                  Submit Report
-                </button>
-              </form>
-            )}
-          </div>
         </div>
       )}
     </div>
