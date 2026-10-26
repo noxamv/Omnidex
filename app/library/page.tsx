@@ -6,18 +6,29 @@ import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { 
   ArrowLeft, Bookmark, Plus, Minus, BookOpen, 
-  CheckCircle2, Sparkles, TrendingUp, Layers, Flame
+  CheckCircle2, Sparkles, TrendingUp, Layers, Flame, Search
 } from 'lucide-react';
 
 export default function UserLibraryPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [user, setUser] = useState<any>(null);
+  const [totalDatabaseCount, setTotalDatabaseCount] = useState<number | null>(null);
 
   useEffect(() => {
     async function fetchUserLibrary() {
       setLoading(true);
+
+      // Fetch dynamic catalog total
+      supabase
+        .from('media_catalog')
+        .select('*', { count: 'exact', head: true })
+        .then(({ count }) => {
+          if (count) setTotalDatabaseCount(count);
+        });
+
       const { data: { session } } = await supabase.auth.getSession();
       const currentUser = session?.user ?? null;
       setUser(currentUser);
@@ -46,10 +57,10 @@ export default function UserLibraryPage() {
               .select('*')
               .in('id', guestIds);
 
-            const mapped = (data || []).map((row: any) => {
-              const local = guestLibrary.find((g: any) => g.id === row.id);
+            const mapped = (guestMedia || []).map((m: any) => {
+              const local = guestLibrary.find((g: any) => g.id === m.id);
               return {
-                ...row,
+                ...m,
                 user_progress: local?.progress || 0,
                 user_status: local?.status || 'plan_to_read',
                 user_rating: local?.rating || 0,
@@ -94,18 +105,17 @@ export default function UserLibraryPage() {
     { label: 'Completed', value: 'completed' },
   ];
 
-  const filteredItems = activeFilter === 'all'
-    ? items
-    : items.filter((i) => i.user_status === activeFilter);
+  const filteredItems = items
+    .filter((i) => activeFilter === 'all' || i.user_status === activeFilter)
+    .filter((i) => !searchQuery.trim() || i.title_primary.toLowerCase().includes(searchQuery.toLowerCase().trim()));
 
-  // Compute Reader Statistics
   const totalChaptersConsumed = items.reduce((acc, cur) => acc + (cur.user_progress || 0), 0);
   const completedSeriesCount = items.filter((i) => i.user_status === 'completed').length;
   const activeReadingCount = items.filter((i) => i.user_status === 'reading').length;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-20 space-y-7">
-      {/* Top Header */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/" className="p-2 rounded-xl bg-zinc-900 border border-white/10 text-zinc-300 hover:text-white transition">
@@ -118,7 +128,7 @@ export default function UserLibraryPage() {
         </div>
       </div>
 
-      {/* Reader Analytics Stats Cards (MangaFlow Performance Matrix) */}
+      {/* Reader Analytics Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/[0.08] backdrop-blur-xl space-y-1">
           <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
@@ -149,24 +159,36 @@ export default function UserLibraryPage() {
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
-        {filterTabs.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setActiveFilter(tab.value)}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition whitespace-nowrap ${
-              activeFilter === tab.value
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-white/5'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Filter Tabs and Shelf Search */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
+          {filterTabs.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setActiveFilter(tab.value)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition whitespace-nowrap ${
+                activeFilter === tab.value
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-white/5'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative max-w-xs w-full">
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Filter library shelf..."
+            className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-zinc-900/90 border border-white/10 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition"
+          />
+        </div>
       </div>
 
-      {/* Shelf Content */}
+      {/* Shelf List */}
       {loading ? (
         <div className="py-20 text-center text-xs text-zinc-500 font-bold uppercase tracking-wider">
           Loading tracking shelves...
@@ -176,7 +198,7 @@ export default function UserLibraryPage() {
           <BookOpen className="w-8 h-8 text-zinc-600 mx-auto" />
           <p className="text-zinc-400 text-sm font-semibold">No series on this tracking shelf.</p>
           <Link href="/" className="inline-block px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition">
-            Explore 2,825 Series
+            Explore {totalDatabaseCount ? `${totalDatabaseCount.toLocaleString()} Series` : 'Catalog'}
           </Link>
         </div>
       ) : (
