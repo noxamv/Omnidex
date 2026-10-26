@@ -9,8 +9,7 @@ import {
   Menu, Search, X, LogIn, LogOut, Mail, 
   Bookmark, SlidersHorizontal, RefreshCw, 
   Upload, FileDown, Smartphone, Star, 
-  Share2, Compass, Layers, Globe, ShieldCheck, 
-  Flame, ExternalLink
+  Compass, Layers, Globe
 } from 'lucide-react';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -269,13 +268,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Top Navbar */}
       <header className="sticky top-0 z-40 w-full bg-[#06080d]/80 backdrop-blur-xl border-b border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
-          {/* Logo & Navigation */}
+          {/* Logo & Navigation - Pure Clean Brand Text */}
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white text-xs shadow-md shadow-indigo-600/30 group-hover:scale-105 transition">
-                Ω
-              </div>
-              <span className="font-black text-sm sm:text-base tracking-tight text-white group-hover:text-indigo-400 transition">
+            <Link href="/" className="flex items-center group">
+              <span className="font-black text-lg sm:text-xl tracking-tight text-white group-hover:text-indigo-400 transition">
                 Omnidex
               </span>
             </Link>
@@ -334,7 +330,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </button>
             )}
 
-            {/* Pop-up Menu Trigger (NOT full-screen) */}
+            {/* Pop-up Menu Trigger */}
             <button
               onClick={() => setMenuPopupOpen((prev) => !prev)}
               className="p-2 rounded-xl bg-zinc-900/80 border border-white/10 text-zinc-400 hover:text-white transition"
@@ -346,7 +342,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Modern Pop-Up Menu Box (Appears neatly under menu button) */}
+      {/* Modern Pop-Up Menu Box */}
       {menuPopupOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-end pt-16 pr-4 sm:pr-8">
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMenuPopupOpen(false)} />
