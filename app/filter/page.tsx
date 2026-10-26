@@ -1,15 +1,25 @@
+// app/filter/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
-import { Star, Search, RotateCcw } from 'lucide-react';
+import { Star, Search, RotateCcw, Filter, Check } from 'lucide-react';
 
 const GENRES = [
   'All Genres', 'Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 
   'Harem', 'Historical', 'Horror', 'Isekai', 'Martial Arts', 'Mecha', 
   'Mystery', 'Psychological', 'Romance', 'Sci-Fi', 'Slice of Life', 
   'Sports', 'Supernatural', 'Thriller', 'Tragedy', 'LitRPG', 'Cultivation'
+];
+
+const FORMATS = [
+  { label: 'All Formats', value: 'all' },
+  { label: 'Manhwa (KR)', value: 'manhwa' },
+  { label: 'Manga (JP)', value: 'manga' },
+  { label: 'Manhua (CN)', value: 'manhua' },
+  { label: 'Anime', value: 'anime' },
+  { label: 'Novels', value: 'novel' },
 ];
 
 export default function FilterPage() {
@@ -24,7 +34,7 @@ export default function FilterPage() {
   useEffect(() => {
     async function executeFilter() {
       setLoading(true);
-      let query = supabase.from('media_catalog').select('*').order('score', { ascending: false });
+      let query = supabase.from('media_catalog').select('*').order('score', { ascending: false }).limit(60);
 
       if (searchTerm.trim()) {
         query = query.ilike('title_primary', `%${searchTerm.trim()}%`);
@@ -42,147 +52,85 @@ export default function FilterPage() {
         query = query.contains('genres', [selectedGenre]);
       }
 
-      const { data } = await query.limit(60);
+      const { data } = await query;
       setResults(data || []);
       setLoading(false);
     }
 
-    const debounce = setTimeout(executeFilter, 250);
-    return () => clearTimeout(debounce);
+    const timer = setTimeout(executeFilter, 250);
+    return () => clearTimeout(timer);
   }, [searchTerm, selectedFormat, minCount, selectedGenre]);
 
-  const resetFilters = () => {
+  const handleReset = () => {
     setSearchTerm('');
     setSelectedFormat('all');
     setMinCount(0);
     setSelectedGenre('All Genres');
   };
 
-  const isAnime = selectedFormat === 'anime';
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 pb-20">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-lg sm:text-xl font-black text-white">Browse & Filter Catalog</h1>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-20 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-base sm:text-xl font-black text-white flex items-center gap-2">
+            <Filter className="w-5 h-5 text-indigo-400" /> Advanced Filter
+          </h1>
+          <p className="text-xs text-zinc-400">Search and filter across 2,825 verified series</p>
+        </div>
         <button
-          onClick={resetFilters}
-          className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-indigo-400 transition"
+          onClick={handleReset}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 border border-white/10 text-xs font-bold text-zinc-400 hover:text-white transition"
         >
           <RotateCcw className="w-3.5 h-3.5" />
           <span>Reset</span>
         </button>
       </div>
 
-      {/* Main Filter Control Box */}
-      <div className="bg-[#0e121b] border border-slate-800/80 rounded-2xl p-4 sm:p-5 mb-6 space-y-4 shadow-xl">
-        
-        {/* 1. Search Title */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-extrabold uppercase tracking-wide text-slate-400">Search Title</label>
-          <div className="relative">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Type series name..."
-              className="w-full bg-[#111622] border border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-            />
-            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-          </div>
+      {/* Control Panel */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-zinc-900/60 border border-white/[0.08] backdrop-blur-xl space-y-4">
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+          <input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by series title..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-zinc-950/80 border border-white/10 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition"
+          />
         </div>
 
-        {/* 2. Format / Type */}
+        {/* Format Selectors */}
         <div className="space-y-1.5">
-          <label className="text-xs font-extrabold uppercase tracking-wide text-slate-400">Format / Type</label>
+          <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Format:</label>
           <div className="flex flex-wrap gap-1.5">
-            {[
-              { label: 'All Types', value: 'all' },
-              { label: 'Anime', value: 'anime' },
-              { label: 'Manga (Japan)', value: 'manga' },
-              { label: 'Manhwa (Korea)', value: 'manhwa' },
-              { label: 'Manhua (China)', value: 'manhua' },
-              { label: 'Web / Light Novels', value: 'novel' },
-            ].map((fmt) => (
+            {FORMATS.map((f) => (
               <button
-                key={fmt.value}
-                onClick={() => {
-                  setSelectedFormat(fmt.value);
-                  setMinCount(0);
-                }}
+                key={f.value}
+                onClick={() => setSelectedFormat(f.value)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                  selectedFormat === fmt.value
-                    ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
-                    : 'bg-[#111622] text-slate-400 hover:text-white border border-slate-800'
+                  selectedFormat === f.value
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-white/5'
                 }`}
               >
-                {fmt.label}
+                {f.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* 3. Dynamic Episode / Chapter Options */}
+        {/* Genre Pills */}
         <div className="space-y-1.5">
-          <label className="text-xs font-extrabold uppercase tracking-wide text-slate-400">
-            {isAnime ? 'Min Episodes / Seasons' : 'Min Chapters'}
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            {isAnime ? (
-              [
-                { label: 'Any', value: 0 },
-                { label: '1+ Ep', value: 1 },
-                { label: '12+ Eps (1 Cour)', value: 12 },
-                { label: '24+ Eps (2 Cour)', value: 24 },
-                { label: '50+ Eps', value: 50 },
-              ].map((opt) => (
-                <button
-                  key={opt.label}
-                  onClick={() => setMinCount(opt.value)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                    minCount === opt.value
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-[#111622] text-slate-400 hover:text-white border border-slate-800'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))
-            ) : (
-              [
-                { label: 'Any', value: 0 },
-                { label: '10+ Chapters', value: 10 },
-                { label: '50+ Chapters', value: 50 },
-                { label: '100+ Chapters', value: 100 },
-                { label: '200+ Chapters', value: 200 },
-              ].map((opt) => (
-                <button
-                  key={opt.label}
-                  onClick={() => setMinCount(opt.value)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                    minCount === opt.value
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-[#111622] text-slate-400 hover:text-white border border-slate-800'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* 4. Genres */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-extrabold uppercase tracking-wide text-slate-400">Genre</label>
-          <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+          <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">Genre:</label>
+          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
             {GENRES.map((g) => (
               <button
                 key={g}
                 onClick={() => setSelectedGenre(g)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
                   selectedGenre === g
                     ? 'bg-indigo-600 text-white'
-                    : 'bg-[#111622] text-slate-400 hover:text-white border border-slate-800'
+                    : 'bg-zinc-950 hover:bg-zinc-800 text-zinc-400 border border-white/5'
                 }`}
               >
                 {g}
@@ -192,41 +140,40 @@ export default function FilterPage() {
         </div>
       </div>
 
-      {/* Filter Results Grid */}
-      <div>
-        <h2 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-3 px-1">
-          Results ({results.length})
-        </h2>
+      {/* Filter Results Feed */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-xs text-zinc-400 font-bold">
+          <span>Matching Titles: {results.length}</span>
+        </div>
 
         {loading ? (
-          <div className="text-center py-20 text-slate-500 text-xs">Filtering series...</div>
+          <div className="py-20 text-center text-xs text-zinc-500 font-bold uppercase tracking-wider">
+            Filtering catalog...
+          </div>
         ) : results.length === 0 ? (
-          <div className="text-center py-20 border border-dashed border-slate-800 rounded-2xl">
-            <p className="text-slate-400 text-sm">No series match this filter criteria.</p>
+          <div className="py-20 text-center text-xs text-zinc-500 border border-dashed border-white/10 rounded-2xl">
+            No series match the selected filter combination.
           </div>
         ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
             {results.map((item) => (
-              <Link key={item.id} href={`/series/${item.id}`} className="flex flex-col group">
-                <div className="w-full aspect-[2/3] relative rounded-xl overflow-hidden bg-slate-900 border border-slate-800 group-hover:border-indigo-500/60 transition shadow-md">
-                  <img
-                    src={item.cover_url || '/placeholder.png'}
-                    alt={item.title_primary}
-                    className="w-full h-full object-cover group-hover:scale-105 transition"
-                    loading="lazy"
-                  />
+              <Link key={item.id} href={`/series/${item.id}`} className="group flex flex-col space-y-1.5">
+                <div className="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-zinc-900 border border-white/10 group-hover:border-indigo-500/60 transition relative">
+                  <img src={item.cover_url || '/placeholder.svg'} alt="" className="w-full h-full object-cover group-hover:scale-105 transition" />
                   {item.score && (
-                    <span className="absolute top-1 right-1 bg-black/85 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] font-bold text-amber-400 flex items-center gap-0.5">
+                    <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-lg bg-black/80 backdrop-blur-md text-[10px] font-black text-amber-300 border border-white/10 flex items-center gap-0.5">
                       <Star className="w-2.5 h-2.5 fill-amber-400" /> {item.score}
                     </span>
                   )}
-                  <span className="absolute bottom-1 left-1 bg-[#0a0d14]/90 px-1.5 py-0.5 rounded text-[8px] font-black uppercase text-indigo-300">
-                    {item.media_type}
-                  </span>
                 </div>
-                <h3 className="mt-1.5 font-bold text-xs leading-snug line-clamp-2 text-slate-200 group-hover:text-indigo-400 transition">
+                <h3 className="text-xs font-bold text-zinc-200 group-hover:text-indigo-400 truncate">
                   {item.title_primary}
                 </h3>
+                <div className="text-[10px] text-zinc-500 uppercase font-semibold flex items-center gap-1">
+                  <span>{item.media_type}</span>
+                  <span>•</span>
+                  <span>{item.status}</span>
+                </div>
               </Link>
             ))}
           </div>
