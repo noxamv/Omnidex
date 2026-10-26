@@ -7,28 +7,21 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabase';
 import { 
   Menu, Search, X, LogIn, LogOut, Mail, 
-  Bookmark, SlidersHorizontal, Settings2, RefreshCw, 
-  Upload, FileDown, Smartphone, Check, Star, ExternalLink,
-  Layers, ShieldAlert
+  Bookmark, SlidersHorizontal, RefreshCw, 
+  Upload, FileDown, Smartphone, Star, 
+  Share2, Compass, Layers, Globe, ShieldCheck, 
+  Flame, ExternalLink
 } from 'lucide-react';
-
-export const AVATAR_CHARACTERS = [
-  { id: 'sjw', name: 'Sung Jin-woo', series: 'Solo Leveling', url: 'https://cdn.myanimelist.net/images/characters/8/531267.jpg' },
-  { id: 'gojo', name: 'Satoru Gojo', series: 'Jujutsu Kaisen', url: 'https://cdn.myanimelist.net/images/characters/5/292491.jpg' },
-  { id: 'luffy', name: 'Monkey D. Luffy', series: 'One Piece', url: 'https://cdn.myanimelist.net/images/characters/5/72194.jpg' },
-  { id: 'frieren', name: 'Frieren', series: "Beyond Journey's End", url: 'https://cdn.myanimelist.net/images/characters/11/496739.jpg' },
-  { id: 'denji', name: 'Denji', series: 'Chainsaw Man', url: 'https://cdn.myanimelist.net/images/characters/4/488583.jpg' },
-];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
-  const [menuOpen, setMenuOpen] = useState(false);
+  // Dialog State (Popups rather than full sheets)
+  const [menuPopupOpen, setMenuPopupOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
-  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   // User Auth State
   const [user, setUser] = useState<any>(null);
@@ -45,16 +38,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [searchLoading, setSearchLoading] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // PWA Install Prompt State
+  // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
 
-  // Import State
+  // AniList Importer State
   const [aniListUsername, setAniListUsername] = useState('');
   const [importLoading, setImportLoading] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
 
-  // 1. Keyboard Shortcut Listener (⌘K / Ctrl+K) & PWA Banner Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -62,11 +54,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         setSearchOpen((prev) => !prev);
       } else if (e.key === 'Escape') {
         setSearchOpen(false);
-        setMenuOpen(false);
+        setMenuPopupOpen(false);
         setUserMenuOpen(false);
         setAuthOpen(false);
         setSyncModalOpen(false);
-        setSettingsModalOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -84,7 +75,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // 2. Auth Session & Guest Data Auto-Migration
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -99,7 +89,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Focus Search Input on Open
   useEffect(() => {
     if (searchOpen) {
       setTimeout(() => searchInputRef.current?.focus(), 50);
@@ -109,7 +98,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [searchOpen]);
 
-  // Live Search Query Trigger
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -129,7 +117,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Migrate Guest LocalStorage to Supabase user_tracker
   async function migrateGuestLibrary(userId: string) {
     try {
       const guestRaw = localStorage.getItem('omnidex_guest_library');
@@ -151,7 +138,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     } catch {}
   }
 
-  // Handle PWA Install Click
   const handleInstallPWA = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
@@ -160,7 +146,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     setDeferredPrompt(null);
   };
 
-  // Handle Authentication (Magic Link or Password)
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthLoading(true);
@@ -186,7 +171,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Real AniList Public List Importer
   const handleAniListImport = async () => {
     if (!aniListUsername.trim()) return;
     setImportLoading(true);
@@ -201,7 +185,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               status
               media {
                 id
-                title { english romaji }
               }
             }
           }
@@ -220,12 +203,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       const entries = lists.flatMap((l: any) => l.entries || []);
 
       if (!entries.length) {
-        setImportMessage('No manga/manhwa tracking entries found for this user.');
+        setImportMessage('No series entries found for this AniList username.');
         setImportLoading(false);
         return;
       }
 
-      let importedCount = 0;
+      let count = 0;
       for (const entry of entries) {
         const alId = `al-${entry.media.id}`;
         const cleanStatus = entry.status?.toLowerCase() === 'current' ? 'reading' : 'plan_to_read';
@@ -239,7 +222,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             is_following: true,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'user_id,media_id' });
-          importedCount++;
+          count++;
         } else {
           let guest = JSON.parse(localStorage.getItem('omnidex_guest_library') || '[]');
           const idx = guest.findIndex((g: any) => g.id === alId);
@@ -247,24 +230,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           if (idx >= 0) guest[idx] = obj;
           else guest.push(obj);
           localStorage.setItem('omnidex_guest_library', JSON.stringify(guest));
-          importedCount++;
+          count++;
         }
       }
 
-      setImportMessage(`🎉 Successfully imported ${importedCount} series from AniList!`);
+      setImportMessage(`🎉 Successfully imported ${count} series from AniList!`);
       setTimeout(() => {
         setSyncModalOpen(false);
         setImportMessage(null);
         window.location.reload();
       }, 1500);
     } catch {
-      setImportMessage('Failed to fetch AniList data. Please check username spelling.');
+      setImportMessage('Could not reach AniList API. Please verify username.');
     } finally {
       setImportLoading(false);
     }
   };
 
-  // Export JSON Backup
   const handleExportBackup = async () => {
     let exportData = [];
     if (user) {
@@ -278,7 +260,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `omnidex_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `omnidex_library_backup_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
   };
 
@@ -290,10 +272,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {/* Logo & Navigation */}
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center font-black text-white text-xs shadow-md shadow-indigo-600/30 group-hover:scale-105 transition">
+              <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white text-xs shadow-md shadow-indigo-600/30 group-hover:scale-105 transition">
                 Ω
               </div>
-              <span className="font-black text-sm tracking-tight text-white group-hover:text-indigo-400 transition">
+              <span className="font-black text-sm sm:text-base tracking-tight text-white group-hover:text-indigo-400 transition">
                 Omnidex
               </span>
             </Link>
@@ -313,7 +295,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
 
-          {/* Search Trigger (⌘K) & Actions */}
+          {/* Search Bar & Actions */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSearchOpen(true)}
@@ -326,27 +308,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </kbd>
             </button>
 
-            {/* PWA Install Button */}
-            {showInstallBtn && (
-              <button
-                onClick={handleInstallPWA}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-600/30 transition text-xs font-bold"
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>Install App</span>
-              </button>
-            )}
-
-            {/* Sync / Importer Trigger */}
+            {/* Sync / Importer Button */}
             <button
               onClick={() => setSyncModalOpen(true)}
               className="p-2 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 text-zinc-300 hover:text-white transition"
-              title="Import & Sync"
+              title="Import & Sync Library"
             >
               <RefreshCw className="w-3.5 h-3.5 text-indigo-400" />
             </button>
 
-            {/* Auth / Avatar State */}
+            {/* Auth / Profile */}
             {user ? (
               <button
                 onClick={() => setUserMenuOpen((prev) => !prev)}
@@ -363,10 +334,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </button>
             )}
 
-            {/* Mobile Menu Toggle */}
+            {/* Pop-up Menu Trigger (NOT full-screen) */}
             <button
-              onClick={() => setMenuOpen((prev) => !prev)}
-              className="md:hidden p-2 rounded-xl bg-zinc-900/80 border border-white/10 text-zinc-400 hover:text-white"
+              onClick={() => setMenuPopupOpen((prev) => !prev)}
+              className="p-2 rounded-xl bg-zinc-900/80 border border-white/10 text-zinc-400 hover:text-white transition"
+              title="Open Navigation Menu"
             >
               <Menu className="w-4 h-4" />
             </button>
@@ -374,38 +346,55 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Mobile Drawer */}
-      {menuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 bg-[#06080d]/95 backdrop-blur-2xl p-6 flex flex-col justify-between">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between border-b border-white/10 pb-4">
-              <span className="font-black text-base text-white">Menu Navigation</span>
-              <button onClick={() => setMenuOpen(false)} className="p-2 rounded-lg bg-zinc-900 text-zinc-400">
-                <X className="w-5 h-5" />
+      {/* Modern Pop-Up Menu Box (Appears neatly under menu button) */}
+      {menuPopupOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-end pt-16 pr-4 sm:pr-8">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMenuPopupOpen(false)} />
+          <div className="relative w-72 rounded-3xl bg-zinc-900/95 backdrop-blur-2xl border border-white/10 shadow-2xl p-4 space-y-3 z-10 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+              <span className="text-xs font-black uppercase tracking-wider text-white">Omnidex Menu</span>
+              <button onClick={() => setMenuPopupOpen(false)} className="text-zinc-400 hover:text-white">
+                <X className="w-4 h-4" />
               </button>
             </div>
-            <nav className="flex flex-col gap-3 font-bold text-sm">
-              <Link href="/" onClick={() => setMenuOpen(false)} className="p-3 rounded-xl bg-zinc-900/60 border border-white/5">
-                Discover Catalog
+
+            <nav className="space-y-1 text-xs font-bold">
+              <Link
+                href="/"
+                onClick={() => setMenuPopupOpen(false)}
+                className="flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
+              >
+                <Compass className="w-4 h-4 text-indigo-400" />
+                <span>Discovery Feed</span>
               </Link>
-              <Link href="/library" onClick={() => setMenuOpen(false)} className="p-3 rounded-xl bg-zinc-900/60 border border-white/5 flex items-center justify-between">
-                <span>My Library Tracker</span>
+              <Link
+                href="/library"
+                onClick={() => setMenuPopupOpen(false)}
+                className="flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
+              >
                 <Bookmark className="w-4 h-4 text-indigo-400" />
+                <span>My Library Tracker</span>
               </Link>
-              <Link href="/filter" onClick={() => setMenuOpen(false)} className="p-3 rounded-xl bg-zinc-900/60 border border-white/5 flex items-center justify-between">
-                <span>Advanced Filter</span>
+              <Link
+                href="/filter"
+                onClick={() => setMenuPopupOpen(false)}
+                className="flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
+              >
                 <SlidersHorizontal className="w-4 h-4 text-zinc-400" />
+                <span>Explore by Genre & Tags</span>
               </Link>
+
               {showInstallBtn && (
                 <button
                   onClick={() => {
                     handleInstallPWA();
-                    setMenuOpen(false);
+                    setMenuPopupOpen(false);
                   }}
-                  className="p-3 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 font-bold flex items-center justify-between"
+                  className="w-full flex items-center justify-between p-2.5 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 transition text-left"
                 >
-                  <span>Install Omnidex PWA</span>
-                  <Smartphone className="w-4 h-4" />
+                  <span className="flex items-center gap-2">
+                    <Smartphone className="w-4 h-4" /> Install Omnidex App
+                  </span>
                 </button>
               )}
             </nav>
@@ -413,11 +402,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* User Dropdown */}
+      {/* User Pop-Up */}
       {userMenuOpen && (
         <div className="fixed top-16 right-4 sm:right-6 w-56 rounded-2xl bg-zinc-900/95 backdrop-blur-2xl border border-white/10 shadow-2xl z-50 p-2 space-y-1">
           <div className="px-3 py-2 border-b border-white/10">
-            <p className="text-[10px] uppercase font-bold text-zinc-500">Authenticated Account</p>
+            <p className="text-[10px] uppercase font-bold text-zinc-500">Logged In As</p>
             <p className="text-xs font-bold text-zinc-200 truncate">{user?.email}</p>
           </div>
           <button
@@ -428,7 +417,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-white/5 flex items-center gap-2"
           >
             <RefreshCw className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Import & Export</span>
+            <span>AniList / JSON Import</span>
           </button>
           <button
             onClick={async () => {
@@ -444,7 +433,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Universal ⌘K Search Modal */}
+      {/* ⌘K Search Dialog */}
       {searchOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 p-4">
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md" onClick={() => setSearchOpen(false)} />
@@ -465,7 +454,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
             <div className="max-h-96 overflow-y-auto p-2 space-y-1">
               {searchLoading && (
-                <div className="py-8 text-center text-xs text-zinc-500">Searching indexed catalog...</div>
+                <div className="py-8 text-center text-xs text-zinc-500">Searching catalog...</div>
               )}
               {!searchLoading && searchResults.length === 0 && searchQuery.trim() && (
                 <div className="py-8 text-center text-xs text-zinc-500">No series match this query.</div>
@@ -503,14 +492,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Sync & AniList Import Modal */}
+      {/* Sync / Importer Dialog */}
       {syncModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSyncModalOpen(false)} />
           <div className="relative w-full max-w-sm bg-zinc-900 border border-white/10 rounded-2xl p-5 shadow-2xl z-10 space-y-4">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <h3 className="font-black text-sm text-white flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 text-indigo-400" /> Import & Sync
+                <RefreshCw className="w-4 h-4 text-indigo-400" /> Library Importer
               </h3>
               <button onClick={() => setSyncModalOpen(false)} className="text-zinc-400 hover:text-white">
                 <X className="w-4 h-4" />
@@ -519,12 +508,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
             <div className="space-y-3 text-xs">
               <div className="p-3 rounded-xl bg-zinc-950 border border-white/5 space-y-2">
-                <label className="font-bold text-zinc-300 block">Import from AniList Username:</label>
+                <label className="font-bold text-zinc-300 block">Import Public AniList Account:</label>
                 <div className="flex gap-2">
                   <input
                     value={aniListUsername}
                     onChange={(e) => setAniListUsername(e.target.value)}
-                    placeholder="e.g., your_username"
+                    placeholder="Enter AniList username"
                     className="flex-1 bg-zinc-900 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500"
                   />
                   <button
@@ -555,7 +544,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Auth Modal */}
+      {/* Auth Dialog */}
       {authOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setAuthOpen(false)} />
@@ -624,10 +613,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Main Page Slot */}
+      {/* Main Content Area */}
       <main className="flex-1">{children}</main>
 
-      {/* Minimal Footer */}
+      {/* Footer */}
       <footer className="border-t border-white/[0.06] bg-[#06080d] py-8 text-center text-xs text-zinc-500">
         <div className="max-w-7xl mx-auto px-4 space-y-1">
           <p className="font-semibold text-zinc-400">Omnidex — Official Media Tracker & Index</p>
