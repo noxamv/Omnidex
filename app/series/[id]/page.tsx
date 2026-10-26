@@ -8,32 +8,16 @@ import { supabase } from '../../../lib/supabase';
 import { 
   ArrowLeft, ExternalLink, Star, Plus, Minus, Bookmark, 
   Globe, ChevronDown, ChevronUp, Flag, X, CheckCheck, 
-  Share2, Layers, Sparkles, BookOpen, Clock, Calendar, 
-  CheckCircle2, ListFilter, ArrowUpDown
+  Share2, Layers, Sparkles, BookOpen, ArrowUpDown, Copy, Check
 } from 'lucide-react';
 
-const PLATFORM_LANGUAGES: Record<string, { label: string; badge: string; color: string }> = {
-  crunchyroll: { label: 'Crunchyroll', badge: 'Official Anime Simulcast (Sub/Dub)', color: 'text-amber-400 border-amber-500/30 bg-amber-500/10' },
-  netflix: { label: 'Netflix', badge: 'Official Multi-Language Stream', color: 'text-rose-400 border-rose-500/30 bg-rose-500/10' },
-  webtoon: { label: 'WEBTOON', badge: 'Official Global Webtoon (English / French / Spanish)', color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
-  'naver webtoon': { label: 'Naver Webtoon', badge: 'Official Korean Raw (KOR)', color: 'text-emerald-300 border-emerald-400/30 bg-emerald-400/10' },
-  tapas: { label: 'Tapas', badge: 'Official Licensed Serialization (ENG)', color: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10' },
-  tappytoon: { label: 'Tappytoon', badge: 'Official Publisher Webtoon (ENG/EU)', color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10' },
-  'royal road': { label: 'Royal Road', badge: 'Original Author Web Novel', color: 'text-sky-400 border-sky-500/30 bg-sky-500/10' },
-  webnovel: { label: 'Webnovel (Qidian)', badge: 'Official Publisher Serialization', color: 'text-blue-400 border-blue-500/30 bg-blue-500/10' },
-  'manga plus': { label: 'MANGA Plus (Shueisha)', badge: 'Official Simulpub (ENG/ESP)', color: 'text-red-400 border-red-500/30 bg-red-500/10' },
-  bookwalker: { label: 'BookWalker', badge: 'Official Digital E-Book (Kadokawa)', color: 'text-orange-400 border-orange-500/30 bg-orange-500/10' },
-  'j-novel club': { label: 'J-Novel Club', badge: 'Official Light Novel Translation', color: 'text-purple-400 border-purple-500/30 bg-purple-500/10' },
-  'yen press': { label: 'Yen Press', badge: 'Official Licensed Volume', color: 'text-pink-400 border-pink-500/30 bg-pink-500/10' },
+const REGION_BADGES: Record<string, { label: string; style: string }> = {
+  KR: { label: '🇰🇷 Korean Raw / License', style: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
+  JP: { label: '🇯🇵 Japanese Raw / License', style: 'text-rose-400 border-rose-500/30 bg-rose-500/10' },
+  CN: { label: '🇨🇳 Chinese Raw / License', style: 'text-amber-400 border-amber-500/30 bg-amber-500/10' },
+  US: { label: '🇺🇸 Official English Edition', style: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10' },
+  GLOBAL: { label: '🌐 Global Licensed Stream', style: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10' },
 };
-
-function getPlatformMeta(siteName: string) {
-  const lower = (siteName || '').toLowerCase();
-  for (const [key, meta] of Object.entries(PLATFORM_LANGUAGES)) {
-    if (lower.includes(key)) return meta;
-  }
-  return { label: siteName || 'Official Source', badge: 'Verified Official Platform', color: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10' };
-}
 
 export default function SeriesDetailPage() {
   const params = useParams();
@@ -53,6 +37,10 @@ export default function SeriesDetailPage() {
 
   // Chapter Directory Sorting
   const [chapterSortAsc, setChapterSortAsc] = useState(false);
+
+  // Share Modal
+  const [shareOpen, setShareOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Report Modal
   const [reportOpen, setReportOpen] = useState(false);
@@ -181,6 +169,29 @@ export default function SeriesDetailPage() {
     });
   };
 
+  // Social Share Matrix Link Construction
+  const getShareLinks = () => {
+    if (typeof window === 'undefined') return [];
+    const shareUrl = encodeURIComponent(window.location.href);
+    const title = encodeURIComponent(`Track "${series?.title_primary}" on Omnidex!`);
+
+    return [
+      { name: 'WhatsApp', color: 'bg-[#25D366]/20 text-[#25D366] border-[#25D366]/30', url: `https://api.whatsapp.com/send?text=${title}%20${shareUrl}` },
+      { name: 'Telegram', color: 'bg-[#229ED9]/20 text-[#229ED9] border-[#229ED9]/30', url: `https://t.me/share/url?url=${shareUrl}&text=${title}` },
+      { name: 'X / Twitter', color: 'bg-white/10 text-white border-white/20', url: `https://twitter.com/intent/tweet?text=${title}&url=${shareUrl}` },
+      { name: 'Reddit', color: 'bg-[#FF4500]/20 text-[#FF4500] border-[#FF4500]/30', url: `https://www.reddit.com/submit?url=${shareUrl}&title=${title}` },
+      { name: 'Facebook', color: 'bg-[#1877F2]/20 text-[#1877F2] border-[#1877F2]/30', url: `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}` },
+    ];
+  };
+
+  const handleCopyLink = () => {
+    if (typeof window !== 'undefined') {
+      navigator.clipboard.writeText(window.location.href);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    }
+  };
+
   const submitReport = async (e: React.FormEvent) => {
     e.preventDefault();
     await supabase.from('media_reports').insert({
@@ -220,12 +231,11 @@ export default function SeriesDetailPage() {
   }
 
   const rawLinks = (series.official_links as any[]) || [];
-  const uniqueLinks = Array.from(new Map(rawLinks.filter(l => l && l.url).map(l => [l.url, l])).values());
+  const uniqueLinks = Array.from(new Map(rawLinks.filter((l) => l?.url).map((l) => [l.url, l])).values());
   const totalUnits = series.total_units || 0;
   const isMaxProgress = totalUnits > 0 && progress >= totalUnits;
   const completionPercentage = totalUnits > 0 ? Math.min(100, Math.round((progress / totalUnits) * 100)) : 0;
 
-  // Build chapter directory list (up to totalUnits or 50 preview chapters)
   const directoryCount = totalUnits > 0 ? totalUnits : Math.max(progress + 15, 30);
   const chapterNumbers = Array.from({ length: directoryCount }, (_, i) => i + 1);
   const displayChapters = chapterSortAsc ? chapterNumbers : [...chapterNumbers].reverse();
@@ -253,16 +263,9 @@ export default function SeriesDetailPage() {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                if (navigator.share) {
-                  navigator.share({ title: series.title_primary, url: window.location.href });
-                } else {
-                  navigator.clipboard.writeText(window.location.href);
-                  showToast('Link copied to clipboard');
-                }
-              }}
+              onClick={() => setShareOpen(true)}
               className="p-2.5 rounded-xl bg-black/40 hover:bg-black/70 backdrop-blur-md border border-white/10 text-zinc-300 hover:text-white transition"
-              title="Share"
+              title="Share Series"
             >
               <Share2 className="w-4 h-4" />
             </button>
@@ -320,14 +323,14 @@ export default function SeriesDetailPage() {
               </p>
             )}
 
-            {/* Genres Tag Cloud */}
+            {/* Global Genre Matrix Tags */}
             {Array.isArray(series.genres) && series.genres.length > 0 && (
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {series.genres.map((g: string) => (
                   <Link
                     key={g}
                     href={`/filter?genre=${encodeURIComponent(g)}`}
-                    className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-zinc-400 hover:text-zinc-200 border border-white/5 transition"
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-zinc-400 hover:text-indigo-300 border border-white/5 transition"
                   >
                     {g}
                   </Link>
@@ -349,7 +352,7 @@ export default function SeriesDetailPage() {
                 <span>{isFollowing ? 'Tracking in Library' : '+ Add to Library'}</span>
               </button>
 
-              {/* Personal Rating Stars */}
+              {/* 10-Star Rating Bar */}
               <div className="flex items-center gap-1 bg-zinc-900/80 px-3 py-2 rounded-xl border border-white/10">
                 <span className="text-[11px] font-bold text-zinc-400 mr-1.5">Score:</span>
                 {[2, 4, 6, 8, 10].map((starVal) => (
@@ -471,7 +474,7 @@ export default function SeriesDetailPage() {
           )}
         </div>
 
-        {/* Chapter Index Directory (MangaFlow-Style Chapter Navigation) */}
+        {/* Interactive Chapter Directory */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -514,7 +517,7 @@ export default function SeriesDetailPage() {
           </div>
         </div>
 
-        {/* Verified Official Publishers & License Providers */}
+        {/* Verified Global Publishers & Official Raw Portals */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-amber-400" />
@@ -530,7 +533,7 @@ export default function SeriesDetailPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {uniqueLinks.map((src: any) => {
-                const meta = getPlatformMeta(src.site);
+                const regBadge = REGION_BADGES[src.region] || REGION_BADGES['GLOBAL'];
                 return (
                   <a
                     key={src.url}
@@ -541,10 +544,10 @@ export default function SeriesDetailPage() {
                   >
                     <div className="space-y-1">
                       <span className="text-xs font-black text-white group-hover:text-indigo-400 transition block">
-                        {meta.label}
+                        {src.site}
                       </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border inline-block ${meta.color}`}>
-                        {meta.badge}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border inline-block ${regBadge.style}`}>
+                        {regBadge.label}
                       </span>
                     </div>
                     <ExternalLink className="w-4 h-4 text-zinc-500 group-hover:text-indigo-400 transition" />
@@ -556,10 +559,58 @@ export default function SeriesDetailPage() {
         </div>
       </div>
 
-      {/* Floating Toast */}
+      {/* Floating Notification Toast */}
       {toastMessage && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-zinc-900/90 backdrop-blur-xl border border-white/15 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2">
           {toastMessage}
+        </div>
+      )}
+
+      {/* 7-Platform Social Share Sheet Modal */}
+      {shareOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setShareOpen(false)} />
+          <div className="relative w-full max-w-sm bg-zinc-900 border border-white/10 rounded-2xl p-5 shadow-2xl z-10 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="font-black text-sm text-white flex items-center gap-2">
+                <Share2 className="w-4 h-4 text-indigo-400" /> Share Series
+              </h3>
+              <button onClick={() => setShareOpen(false)} className="text-zinc-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick Copy Link Bar */}
+            <div className="flex items-center gap-2 bg-zinc-950 p-2 rounded-xl border border-white/5">
+              <input
+                readOnly
+                value={typeof window !== 'undefined' ? window.location.href : ''}
+                className="w-full bg-transparent text-xs text-zinc-400 truncate focus:outline-none"
+              />
+              <button
+                onClick={handleCopyLink}
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
+              >
+                {linkCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                <span>{linkCopied ? 'Copied' : 'Copy'}</span>
+              </button>
+            </div>
+
+            {/* Social Share Grid */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {getShareLinks().map((platform) => (
+                <a
+                  key={platform.name}
+                  href={platform.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex items-center justify-center py-2.5 rounded-xl border font-bold transition ${platform.color}`}
+                >
+                  {platform.name}
+                </a>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
