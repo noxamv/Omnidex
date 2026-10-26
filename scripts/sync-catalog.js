@@ -15,7 +15,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 const ANILIST_GRAPHQL_ENDPOINT = 'https://graphql.anilist.co';
 
 const ANILIST_PAGE_QUERY = `
@@ -100,14 +99,12 @@ async function fetchAniListPageWithRetry(variables, maxRetries = 3) {
       clearTimeout(timeout);
 
       if (res.status === 429) {
-        console.warn(`[AniList 429 Rate Limit] Pausing 8s before retry (Attempt ${attempt}/${maxRetries})...`);
+        console.warn(`[AniList 429 Rate Limit] Pacing triggered. Pausing 8s before retry (Attempt ${attempt}/${maxRetries})...`);
         await delay(8000);
         continue;
       }
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 
       const json = await res.json();
       return json.data?.Page?.media || [];
@@ -128,10 +125,7 @@ async function runGlobalIngestion() {
 
   let collected = [];
 
-  // =========================================================================
-  // BATCH 1: KOREAN MANHWA & WEBTOONS (KR Origin)
-  // Target: 25 Pages * 50 = 1,250 Popular Korean Series
-  // =========================================================================
+  // 1. Korean Manhwa (KR Origin)
   console.log('\n📥 Stage 1: Ingesting Korean Manhwa (KR)...');
   for (let p = 1; p <= 25; p++) {
     process.stdout.write(`  -> Fetching Manhwa Page ${p}/25... `);
@@ -145,13 +139,10 @@ async function runGlobalIngestion() {
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
     collected.push(...pageItems);
-    await delay(950); // 950ms guarantees safety under 90 req/min limit
+    await delay(950);
   }
 
-  // =========================================================================
-  // BATCH 2: CHINESE MANHUA (CN Origin)
-  // Target: 15 Pages * 50 = 750 Popular Chinese Series
-  // =========================================================================
+  // 2. Chinese Manhua (CN Origin)
   console.log('\n📥 Stage 2: Ingesting Chinese Manhua (CN)...');
   for (let p = 1; p <= 15; p++) {
     process.stdout.write(`  -> Fetching Manhua Page ${p}/15... `);
@@ -168,11 +159,8 @@ async function runGlobalIngestion() {
     await delay(950);
   }
 
-  // =========================================================================
-  // BATCH 3: JAPANESE MANGA (JP Origin)
-  // Target: 25 Pages * 50 = 1,250 Manga Series
-  // =========================================================================
-  console.log('\n📥 Stage 3: Ingesting Japanese Manga Catalog (JP)...');
+  // 3. Japanese Manga (JP Origin)
+  console.log('\n📥 Stage 3: Ingesting Japanese Manga (JP)...');
   for (let p = 1; p <= 25; p++) {
     process.stdout.write(`  -> Fetching Manga Page ${p}/25... `);
     const pageItems = await fetchAniListPageWithRetry({
@@ -189,11 +177,8 @@ async function runGlobalIngestion() {
     await delay(950);
   }
 
-  // =========================================================================
-  // BATCH 4: LIGHT NOVELS & WEB NOVELS
-  // Target: 20 Pages * 50 = 1,000 Novels
-  // =========================================================================
-  console.log('\n📥 Stage 4: Ingesting Light & Web Novels...');
+  // 4. Light Novels & Web Novels
+  console.log('\n📥 Stage 4: Ingesting Novels...');
   for (let p = 1; p <= 20; p++) {
     process.stdout.write(`  -> Fetching Novels Page ${p}/20... `);
     const pageItems = await fetchAniListPageWithRetry({
@@ -209,10 +194,7 @@ async function runGlobalIngestion() {
     await delay(950);
   }
 
-  // =========================================================================
-  // BATCH 5: ANIME SERIES & SIMULCASTS
-  // Target: 20 Pages * 50 = 1,000 Anime
-  // =========================================================================
+  // 5. Anime Series
   console.log('\n📥 Stage 5: Ingesting Anime Series...');
   for (let p = 1; p <= 20; p++) {
     process.stdout.write(`  -> Fetching Anime Page ${p}/20... `);
@@ -230,9 +212,6 @@ async function runGlobalIngestion() {
 
   console.log(`\n📦 Raw Media Harvested: ${collected.length} total entries.`);
 
-  // =========================================================================
-  // DATA NORMALIZATION & GLOBAL DEDUPLICATION
-  // =========================================================================
   const transformedRows = collected.map((item) => {
     const primaryTitle =
       item.title?.english ||
@@ -270,9 +249,6 @@ async function runGlobalIngestion() {
   const uniqueCatalog = Array.from(new Map(transformedRows.map((r) => [r.id, r])).values());
   console.log(`✨ Deduplicated to ${uniqueCatalog.length} unique catalog records.`);
 
-  // =========================================================================
-  // CHUNKED DATABASE UPSERT (500 Rows/Batch)
-  // =========================================================================
   const CHUNK_SIZE = 500;
   let savedCount = 0;
 
