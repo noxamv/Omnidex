@@ -1,31 +1,35 @@
+// app/library/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Bookmark, Plus, Minus, CheckCheck, BookOpen } from 'lucide-react';
 
 export default function UserLibraryPage() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     async function fetchUserLibrary() {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+
+      if (currentUser) {
         const { data } = await supabase
           .from('user_tracker')
           .select('progress, status, media_catalog(*)')
-          .eq('user_id', session.user.id)
+          .eq('user_id', currentUser.id)
           .eq('is_following', true);
 
         const mapped = (data || []).map((row: any) => ({
           ...row.media_catalog,
-          user_progress: row.progress,
-          user_status: row.status,
+          user_progress: row.progress || 0,
+          user_status: row.status || 'plan_to_read',
         }));
         setItems(mapped);
       } else {
@@ -48,42 +52,68 @@ export default function UserLibraryPage() {
             });
             setItems(mapped);
           }
-        } catch (e) {}
+        } catch {}
       }
       setLoading(false);
     }
     fetchUserLibrary();
   }, []);
 
+  const handleQuickStep = async (item: any, delta: number) => {
+    const nextProg = Math.max(0, item.user_progress + delta);
+    setItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, user_progress: nextProg } : i))
+    );
+
+    if (user) {
+      await supabase.from('user_tracker').upsert({
+        user_id: user.id,
+        media_id: item.id,
+        progress: nextProg,
+        status: item.user_status,
+        is_following: true,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,media_id' });
+    } else {
+      let guest = JSON.parse(localStorage.getItem('omnidex_guest_library') || '[]');
+      const idx = guest.findIndex((g: any) => g.id === item.id);
+      if (idx >= 0) guest[idx].progress = nextProg;
+      localStorage.setItem('omnidex_guest_library', JSON.stringify(guest));
+    }
+  };
+
   const filterTabs = [
-    { label: 'All', value: 'all' },
+    { label: 'All Shelves', value: 'all' },
     { label: 'Reading / Watching', value: 'reading' },
     { label: 'Plan to Read', value: 'plan_to_read' },
     { label: 'Completed', value: 'completed' },
   ];
 
-  const filteredItems = activeFilter === 'all' 
-    ? items 
-    : items.filter(i => i.user_status === activeFilter);
+  const filteredItems = activeFilter === 'all'
+    ? items
+    : items.filter((i) => i.user_status === activeFilter);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 pb-20">
-      <div className="flex items-center gap-3 mb-4">
-        <Link href="/" className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-20 space-y-6">
+      <div className="flex items-center gap-3">
+        <Link href="/" className="p-2 rounded-xl bg-zinc-900 border border-white/10 text-zinc-300 hover:text-white">
           <ArrowLeft className="w-4 h-4" />
         </Link>
-        <h1 className="text-lg font-black text-white">My Library Tracker</h1>
+        <div>
+          <h1 className="text-base sm:text-xl font-black text-white">Tracking Shelves</h1>
+          <p className="text-xs text-zinc-400 font-medium">Personal reading progress and bookmarks</p>
+        </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-2 mb-5">
+      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
         {filterTabs.map((tab) => (
           <button
             key={tab.value}
             onClick={() => setActiveFilter(tab.value)}
-            className={`px-3 py-1 rounded-full text-xs font-bold transition whitespace-nowrap ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition whitespace-nowrap ${
               activeFilter === tab.value
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-900 text-slate-400 hover:text-white'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : 'bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-white/5'
             }`}
           >
             {tab.label}
@@ -92,23 +122,52 @@ export default function UserLibraryPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-slate-500 text-xs">Loading library...</div>
+        <div className="py-20 text-center text-xs text-zinc-500 font-bold uppercase tracking-wider">
+          Loading tracking shelves...
+        </div>
       ) : filteredItems.length === 0 ? (
-        <div className="text-center py-20 border border-dashed border-slate-800 rounded-2xl">
-          <p className="text-slate-400 text-sm">No series in this tracking shelf.</p>
+        <div className="text-center py-20 border border-dashed border-white/10 rounded-3xl p-8 space-y-3">
+          <BookOpen className="w-8 h-8 text-zinc-600 mx-auto" />
+          <p className="text-zinc-400 text-sm font-semibold">No series on this tracking shelf.</p>
+          <Link href="/" className="inline-block px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition">
+            Explore 2,825 Series
+          </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
           {filteredItems.map((item) => (
-            <Link key={item.id} href={`/series/${item.id}`} className="flex flex-col group">
-              <div className="w-full aspect-[2/3] relative rounded-xl overflow-hidden bg-slate-900 border border-slate-800 group-hover:border-indigo-500/60 transition">
+            <div key={item.id} className="group flex flex-col space-y-2">
+              <Link href={`/series/${item.id}`} className="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-zinc-900 border border-white/10 group-hover:border-indigo-500/60 transition relative">
                 <img src={item.cover_url || '/placeholder.svg'} alt="" className="w-full h-full object-cover group-hover:scale-105 transition" />
-                <span className="absolute bottom-1 right-1 bg-black/85 px-1.5 py-0.5 rounded text-[10px] font-bold text-indigo-400">
-                  Ep/Ch {item.user_progress}
+                <span className="absolute bottom-2 right-2 bg-black/85 backdrop-blur-md px-2 py-0.5 rounded-lg text-[10px] font-black text-indigo-300 border border-white/10">
+                  Ch/Ep {item.user_progress}
                 </span>
+              </Link>
+
+              <div className="space-y-1">
+                <Link href={`/series/${item.id}`} className="text-xs font-bold text-zinc-200 group-hover:text-indigo-400 truncate block">
+                  {item.title_primary}
+                </Link>
+
+                <div className="flex items-center justify-between bg-zinc-900/80 px-2 py-1 rounded-lg border border-white/5">
+                  <span className="text-[10px] text-zinc-400 font-bold">Quick Step:</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleQuickStep(item, -1)}
+                      className="p-1 rounded hover:bg-zinc-800 text-zinc-300"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={() => handleQuickStep(item, 1)}
+                      className="p-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
               </div>
-              <h3 className="mt-1.5 font-bold text-xs text-slate-200 truncate">{item.title_primary}</h3>
-            </Link>
+            </div>
           ))}
         </div>
       )}
