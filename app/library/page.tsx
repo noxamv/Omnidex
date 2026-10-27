@@ -6,8 +6,16 @@ import Link from 'next/link';
 import { supabase } from '../../lib/supabase';
 import { 
   ArrowLeft, Bookmark, Plus, Minus, BookOpen, 
-  CheckCircle2, Sparkles, TrendingUp, Layers, Flame, Search
+  Search, Flame, CheckCircle2, Clock
 } from 'lucide-react';
+
+const SHELVES = [
+  { label: 'All', value: 'all' },
+  { label: 'Reading / Watching', value: 'reading' },
+  { label: 'Plan to Read', value: 'plan_to_read' },
+  { label: 'On Hold', value: 'on_hold' },
+  { label: 'Completed', value: 'completed' },
+];
 
 export default function UserLibraryPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -21,7 +29,6 @@ export default function UserLibraryPage() {
     async function fetchUserLibrary() {
       setLoading(true);
 
-      // Fetch dynamic catalog total
       supabase
         .from('media_catalog')
         .select('*', { count: 'exact', head: true })
@@ -43,7 +50,7 @@ export default function UserLibraryPage() {
         const mapped = (data || []).map((row: any) => ({
           ...row.media_catalog,
           user_progress: row.progress || 0,
-          user_status: row.status || 'plan_to_read',
+          user_status: row.status || 'reading',
           user_rating: row.rating || 0,
         }));
         setItems(mapped);
@@ -52,17 +59,17 @@ export default function UserLibraryPage() {
           const guestLibrary = JSON.parse(localStorage.getItem('omnidex_guest_library') || '[]');
           if (guestLibrary.length > 0) {
             const guestIds = guestLibrary.map((g: any) => g.id);
-            const { data: guestMedia } = await supabase
+            const { data } = await supabase
               .from('media_catalog')
               .select('*')
               .in('id', guestIds);
 
-            const mapped = (guestMedia || []).map((m: any) => {
-              const local = guestLibrary.find((g: any) => g.id === m.id);
+            const mapped = (data || []).map((row: any) => {
+              const local = guestLibrary.find((g: any) => g.id === row.id);
               return {
-                ...m,
+                ...row,
                 user_progress: local?.progress || 0,
-                user_status: local?.status || 'plan_to_read',
+                user_status: local?.status || 'reading',
                 user_rating: local?.rating || 0,
               };
             });
@@ -98,75 +105,52 @@ export default function UserLibraryPage() {
     }
   };
 
-  const filterTabs = [
-    { label: 'All Shelves', value: 'all' },
-    { label: 'Reading / Watching', value: 'reading' },
-    { label: 'Plan to Read', value: 'plan_to_read' },
-    { label: 'Completed', value: 'completed' },
-  ];
-
   const filteredItems = items
     .filter((i) => activeFilter === 'all' || i.user_status === activeFilter)
-    .filter((i) => !searchQuery.trim() || (i.title_primary && i.title_primary.toLowerCase().includes(searchQuery.toLowerCase().trim())));
+    .filter((i) => !searchQuery.trim() || i.title_primary.toLowerCase().includes(searchQuery.toLowerCase().trim()));
 
-  const totalChaptersConsumed = items.reduce((acc, cur) => acc + (cur.user_progress || 0), 0);
-  const completedSeriesCount = items.filter((i) => i.user_status === 'completed').length;
-  const activeReadingCount = items.filter((i) => i.user_status === 'reading').length;
+  const totalChapters = items.reduce((acc, cur) => acc + (cur.user_progress || 0), 0);
+  const activeReading = items.filter((i) => i.user_status === 'reading').length;
+  const completedCount = items.filter((i) => i.user_status === 'completed' || i.user_status === 'finished').length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-20 space-y-7">
-      {/* Header */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-20 space-y-5">
+      {/* Streamlined Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/" className="p-2 rounded-xl bg-zinc-900 border border-white/10 text-zinc-300 hover:text-white transition">
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-base sm:text-2xl font-black text-white">Tracking Shelves</h1>
-            <p className="text-xs text-zinc-400 font-medium">Your personal cross-platform reading vault</p>
+            <h1 className="text-xl font-black text-white">Library</h1>
+            <p className="text-xs text-zinc-400">Tracking {items.length} series across your shelves</p>
           </div>
         </div>
       </div>
 
-      {/* Reader Analytics Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/[0.08] backdrop-blur-xl space-y-1">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-            <BookOpen className="w-3.5 h-3.5 text-indigo-400" /> Units Consumed
-          </div>
-          <p className="text-xl sm:text-2xl font-black text-white">{totalChaptersConsumed.toLocaleString()}</p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/[0.08] backdrop-blur-xl space-y-1">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-            <Flame className="w-3.5 h-3.5 text-amber-400" /> Active Tracking
-          </div>
-          <p className="text-xl sm:text-2xl font-black text-white">{activeReadingCount} <span className="text-xs font-semibold text-zinc-500">series</span></p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/[0.08] backdrop-blur-xl space-y-1">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Completed
-          </div>
-          <p className="text-xl sm:text-2xl font-black text-white">{completedSeriesCount} <span className="text-xs font-semibold text-zinc-500">series</span></p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-zinc-900/60 border border-white/[0.08] backdrop-blur-xl space-y-1">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-            <Layers className="w-3.5 h-3.5 text-cyan-400" /> Total Tracked
-          </div>
-          <p className="text-xl sm:text-2xl font-black text-white">{items.length} <span className="text-xs font-semibold text-zinc-500">titles</span></p>
-        </div>
+      {/* Sleek, 1-Line Compact Statistics Pill Bar */}
+      <div className="flex items-center gap-3 px-3.5 py-2 rounded-xl bg-zinc-900/70 border border-white/10 text-xs text-zinc-400 overflow-x-auto scrollbar-none">
+        <span className="flex items-center gap-1.5 font-bold text-zinc-300 whitespace-nowrap">
+          <BookOpen className="w-3.5 h-3.5 text-indigo-400" /> Units Consumed: <strong className="text-white">{totalChapters}</strong>
+        </span>
+        <span>•</span>
+        <span className="flex items-center gap-1.5 font-bold text-zinc-300 whitespace-nowrap">
+          <Flame className="w-3.5 h-3.5 text-amber-400" /> Reading: <strong className="text-white">{activeReading}</strong>
+        </span>
+        <span>•</span>
+        <span className="flex items-center gap-1.5 font-bold text-zinc-300 whitespace-nowrap">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Completed: <strong className="text-white">{completedCount}</strong>
+        </span>
       </div>
 
-      {/* Filter Tabs and Shelf Search */}
+      {/* Filter Tabs & In-Shelf Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
-          {filterTabs.map((tab) => (
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-1">
+          {SHELVES.map((tab) => (
             <button
               key={tab.value}
               onClick={() => setActiveFilter(tab.value)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                 activeFilter === tab.value
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'bg-zinc-900/80 hover:bg-zinc-800 text-zinc-400 hover:text-white border border-white/5'
@@ -182,21 +166,21 @@ export default function UserLibraryPage() {
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Filter library shelf..."
+            placeholder="Search within your library..."
             className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-zinc-900/90 border border-white/10 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition"
           />
         </div>
       </div>
 
-      {/* Shelf List */}
+      {/* Series Grid */}
       {loading ? (
         <div className="py-20 text-center text-xs text-zinc-500 font-bold uppercase tracking-wider">
-          Loading tracking shelves...
+          Loading library shelves...
         </div>
       ) : filteredItems.length === 0 ? (
         <div className="text-center py-20 border border-dashed border-white/10 rounded-3xl p-8 space-y-3">
-          <BookOpen className="w-8 h-8 text-zinc-600 mx-auto" />
-          <p className="text-zinc-400 text-sm font-semibold">No series on this tracking shelf.</p>
+          <Bookmark className="w-8 h-8 text-zinc-600 mx-auto" />
+          <p className="text-zinc-400 text-sm font-semibold">No series on this shelf.</p>
           <Link href="/" className="inline-block px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition">
             Explore {totalDatabaseCount ? `${totalDatabaseCount.toLocaleString()} Series` : 'Catalog'}
           </Link>
