@@ -19,6 +19,8 @@ const CATEGORY_TABS = [
   { label: 'Novels', value: 'novel' },
 ];
 
+const DEFAULT_COVER = 'https://images.weserv.nl/?url=cdn.myanimelist.net/images/manga/3/258224.jpg';
+
 export default function HomePage() {
   const [catalog, setCatalog] = useState<any[]>([]);
   const [followingItems, setFollowingItems] = useState<any[]>([]);
@@ -42,7 +44,7 @@ export default function HomePage() {
       const items = data || [];
       setCatalog(items);
 
-      // Stable Random Picks: Cached in sessionStorage so it doesn't shuffle on every scroll/rerender
+      // Stable Random Carousel in Session Storage
       const cachedRandom = sessionStorage.getItem('omnidex_random_pool');
       if (cachedRandom) {
         setRandomList(JSON.parse(cachedRandom));
@@ -52,7 +54,7 @@ export default function HomePage() {
         sessionStorage.setItem('omnidex_random_pool', JSON.stringify(shuffled));
       }
 
-      // Check for user/guest followed titles
+      // User / Guest Followed Series
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const { data: trackData } = await supabase
@@ -112,9 +114,8 @@ export default function HomePage() {
   const popularList = filterList([...catalog].sort((a, b) => (b.score || 0) - (a.score || 0)), popularTab);
   const latestList = filterList([...catalog].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()), latestTab);
 
-  // Filter out titles with broken or gradient stock covers from the Spotlight
   const spotlightPool = catalog
-    .filter((i) => i.cover_url && !i.cover_url.includes('placeholder') && !i.cover_url.includes('unsplash'))
+    .filter((i) => i.cover_url && !i.cover_url.includes('placeholder'))
     .slice(0, 7);
   const activeSpotlight = spotlightPool[spotlightIndex] || catalog[0] || null;
 
@@ -130,7 +131,7 @@ export default function HomePage() {
         />
       )}
 
-      {/* 2. Vector SVG Social Share Bar */}
+      {/* 2. Official Vector SVG Social Share Bar */}
       <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-zinc-900/60 border border-white/[0.06] backdrop-blur-md">
         <span className="text-xs font-bold text-zinc-400 pl-1 whitespace-nowrap">Share Omnidex:</span>
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
@@ -229,9 +230,10 @@ export default function HomePage() {
               >
                 <div className="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-zinc-900 border border-white/10 group-hover:border-indigo-500/60 transition relative shadow-lg">
                   <img
-                    src={item.cover_url || '/placeholder.svg'}
+                    src={item.cover_url || DEFAULT_COVER}
                     alt=""
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                    onError={(e) => { e.currentTarget.src = DEFAULT_COVER; }}
                   />
                   <span className="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded-md bg-black/85 backdrop-blur-md text-[10px] font-black text-indigo-300 border border-white/10">
                     Ep/Ch {item.user_progress}
@@ -282,10 +284,11 @@ export default function HomePage() {
             >
               <div className="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-zinc-900 border border-white/[0.08] group-hover:border-indigo-500/60 shadow-xl transition relative">
                 <img
-                  src={item.cover_url || '/placeholder.svg'}
+                  src={item.cover_url || DEFAULT_COVER}
                   alt={item.title_primary}
                   className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                   loading="lazy"
+                  onError={(e) => { e.currentTarget.src = DEFAULT_COVER; }}
                 />
                 <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-[10px] font-black text-white border border-white/10">
                   #{idx + 1}
@@ -348,10 +351,11 @@ export default function HomePage() {
             >
               <div className="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-zinc-900 border border-white/[0.08] group-hover:border-amber-500/60 shadow-xl transition relative">
                 <img
-                  src={item.cover_url || '/placeholder.svg'}
+                  src={item.cover_url || DEFAULT_COVER}
                   alt={item.title_primary}
                   className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                   loading="lazy"
+                  onError={(e) => { e.currentTarget.src = DEFAULT_COVER; }}
                 />
                 {item.score && (
                   <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-[10px] font-black text-amber-300 border border-white/10 flex items-center gap-0.5">
@@ -406,10 +410,11 @@ export default function HomePage() {
             >
               <div className="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-zinc-900 border border-white/[0.08] group-hover:border-cyan-500/60 shadow-xl transition relative">
                 <img
-                  src={item.cover_url || '/placeholder.svg'}
+                  src={item.cover_url || DEFAULT_COVER}
                   alt={item.title_primary}
                   className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                   loading="lazy"
+                  onError={(e) => { e.currentTarget.src = DEFAULT_COVER; }}
                 />
                 <span className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded-md bg-black/85 backdrop-blur-md text-[9px] font-black text-cyan-300 border border-white/10 uppercase">
                   {item.status}
@@ -426,7 +431,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 7. Frozen Random Picks (Does not shift rapidly on scroll) */}
+      {/* 7. Frozen Random Picks */}
       {randomList.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
@@ -447,10 +452,11 @@ export default function HomePage() {
               >
                 <div className="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-zinc-900 border border-white/[0.08] group-hover:border-purple-500/60 shadow-xl transition relative">
                   <img
-                    src={item.cover_url || '/placeholder.svg'}
+                    src={item.cover_url || DEFAULT_COVER}
                     alt={item.title_primary}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                     loading="lazy"
+                    onError={(e) => { e.currentTarget.src = DEFAULT_COVER; }}
                   />
                   {item.score && (
                     <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-black/75 backdrop-blur-md text-[10px] font-black text-amber-300 border border-white/10 flex items-center gap-0.5">
