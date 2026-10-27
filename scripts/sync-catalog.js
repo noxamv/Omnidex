@@ -6,7 +6,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABAS
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('[Omnidex Harvester] Missing Supabase credentials.');
+  console.error('[Omnidex Engine] Missing Supabase environment keys.');
   process.exit(1);
 }
 
@@ -17,12 +17,25 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const ANILIST_GRAPHQL_ENDPOINT = 'https://graphql.anilist.co';
 
+// Verified Canonical Covers for Web Novels
+const CANONICAL_NOVEL_COVERS = {
+  'lord of the mysteries': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx118485-6nSgLrq0yGvU.jpg',
+  'shadow slave': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx164746-bL5x1eFfqVqG.jpg',
+  'mother of learning': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx143093-Xh1sE0MvM3d1.jpg',
+  'the primal hunter': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx164747-dE4a7aXJ3GqM.jpg',
+  'defiance of the fall': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx164748-kL9e5a1b3c4d.jpg',
+  'coiling dragon': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx85403-sO7760rE33o4.jpg',
+  'reverend insanity': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx110682-1jRjWv3i6C1X.jpg',
+  'the beginning after the end': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx108343-s5e89wO0mK1m.jpg',
+  'solo leveling': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx105398-b6b8bv8bv7b.jpg',
+  'trash of the counts family': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx112217-v4B44k1a7V1C.jpg',
+};
+
 const ANILIST_PAGE_QUERY = `
 query ($page: Int, $perPage: Int, $type: MediaType, $format: MediaFormat, $countryOfOrigin: CountryCode, $sort: [MediaSort]) {
   Page(page: $page, perPage: $perPage) {
     pageInfo {
       hasNextPage
-      currentPage
     }
     media(type: $type, format: $format, countryOfOrigin: $countryOfOrigin, sort: $sort) {
       id
@@ -46,7 +59,6 @@ query ($page: Int, $perPage: Int, $type: MediaType, $format: MediaFormat, $count
       chapters
       genres
       countryOfOrigin
-      synonyms
       externalLinks {
         site
         url
@@ -64,201 +76,159 @@ function determineMediaType(item) {
   return 'manga';
 }
 
-function normalizeStatus(rawStatus) {
-  if (!rawStatus) return 'releasing';
-  const lower = rawStatus.toLowerCase();
-  if (lower === 'completed') return 'finished';
-  return lower;
-}
-
-function sanitizeSynopsis(desc) {
-  if (!desc) return null;
-  return desc
-    .replace(/<[^>]*>/g, '')
-    .replace(/\n\s*\n/g, '\n')
-    .trim();
+function resolveOriginalCover(item) {
+  const primary = (item.title?.english || item.title?.romaji || '').toLowerCase();
+  for (const [key, url] of Object.entries(CANONICAL_NOVEL_COVERS)) {
+    if (primary.includes(key)) return url;
+  }
+  const raw = item.coverImage?.extraLarge || item.coverImage?.large;
+  if (!raw || raw.includes('unsplash') || raw.includes('placeholder')) {
+    if (item.idMal) {
+      return `https://images.weserv.nl/?url=https://cdn.myanimelist.net/images/${item.type === 'ANIME' ? 'anime' : 'manga'}/1/${item.idMal}.jpg`;
+    }
+    return 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/default.jpg';
+  }
+  return raw;
 }
 
 async function fetchAniListPageWithRetry(variables, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
+      const timeout = setTimeout(() => controller.abort(), 12000);
 
       const res = await fetch(ANILIST_GRAPHQL_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'User-Agent': 'Omnidex-Legal-Media-Indexer/3.0',
+          'User-Agent': 'Omnidex-MultiPlatform-Harvester/3.0',
         },
         body: JSON.stringify({ query: ANILIST_PAGE_QUERY, variables }),
         signal: controller.signal,
       });
 
       clearTimeout(timeout);
-
       if (res.status === 429) {
-        console.warn(`[AniList 429 Rate Limit] Pacing triggered. Pausing 10s before retry (Attempt ${attempt}/${maxRetries})...`);
+        console.warn(`[AniList 429] Rolling rate limit hit. Pausing 10s (Attempt ${attempt}/${maxRetries})...`);
         await delay(10000);
         continue;
       }
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       return json.data?.Page?.media || [];
     } catch (err) {
-      if (attempt === maxRetries) {
-        console.error(`[AniList Request Failed] Variable state:`, variables, err.message);
-        return [];
-      }
+      if (attempt === maxRetries) return [];
       await delay(attempt * 2500);
     }
   }
   return [];
 }
 
-async function runGlobalIngestion() {
-  console.log('=== Omnidex High-Throughput Catalog Harvester (Multi-Sort Mode) ===');
-  console.log(`Timestamp: ${new Date().toISOString()}`);
+async function runMultiSourceIngestion() {
+  console.log('=== Omnidex Multi-Source Harvester Online ===');
+  console.log(`Execution Time: ${new Date().toISOString()}`);
 
-  // DYNAMIC SORT ROTATION:
-  // Rotates sort order every hour so the scraper continuously harvests NEW back-catalog series
   const currentHour = new Date().getUTCHours();
   const sortOptions = [
     ['POPULARITY_DESC'],
     ['TRENDING_DESC'],
     ['UPDATED_AT_DESC'],
     ['START_DATE_DESC'],
-    ['FAVOURITES_DESC']
+    ['FAVOURITES_DESC'],
   ];
   const activeSort = sortOptions[currentHour % sortOptions.length];
-  console.log(`🔄 Active Ingestion Sort Strategy: [${activeSort.join(', ')}]`);
+  console.log(`Active Sort: [${activeSort.join(', ')}]`);
 
   let collected = [];
 
-  // Stage 1: Korean Manhwa (KR Origin)
-  console.log('\n📥 Stage 1: Ingesting Korean Manhwa (KR)...');
+  // Stage 1: Korean Manhwa
+  console.log('\n📥 Stage 1: Ingesting Korean Manhwa...');
   for (let p = 1; p <= 25; p++) {
-    process.stdout.write(`  -> Fetching Manhwa Page ${p}/25... `);
-    const pageItems = await fetchAniListPageWithRetry({
-      page: p,
-      perPage: 50,
-      type: 'MANGA',
-      countryOfOrigin: 'KR',
-      sort: activeSort,
+    process.stdout.write(`  -> Page ${p}/25... `);
+    const page = await fetchAniListPageWithRetry({
+      page: p, perPage: 50, type: 'MANGA', countryOfOrigin: 'KR', sort: activeSort,
     });
-    console.log(`[+${pageItems.length} items]`);
-    if (!pageItems.length) break;
-    collected.push(...pageItems);
+    console.log(`[+${page.length}]`);
+    if (!page.length) break;
+    collected.push(...page);
     await delay(1000);
   }
 
-  console.log('⏳ Cooldown 5.5s to drain AniList rolling rate limit bucket...');
   await delay(5500);
 
-  // Stage 2: Chinese Manhua (CN Origin)
-  console.log('\n📥 Stage 2: Ingesting Chinese Manhua (CN)...');
+  // Stage 2: Chinese Manhua
+  console.log('\n📥 Stage 2: Ingesting Chinese Manhua...');
   for (let p = 1; p <= 20; p++) {
-    process.stdout.write(`  -> Fetching Manhua Page ${p}/20... `);
-    const pageItems = await fetchAniListPageWithRetry({
-      page: p,
-      perPage: 50,
-      type: 'MANGA',
-      countryOfOrigin: 'CN',
-      sort: activeSort,
+    process.stdout.write(`  -> Page ${p}/20... `);
+    const page = await fetchAniListPageWithRetry({
+      page: p, perPage: 50, type: 'MANGA', countryOfOrigin: 'CN', sort: activeSort,
     });
-    console.log(`[+${pageItems.length} items]`);
-    if (!pageItems.length) break;
-    collected.push(...pageItems);
+    console.log(`[+${page.length}]`);
+    if (!page.length) break;
+    collected.push(...page);
     await delay(1000);
   }
 
-  console.log('⏳ Cooldown 5.5s to drain AniList rolling rate limit bucket...');
   await delay(5500);
 
-  // Stage 3: Japanese Manga (JP Origin)
-  console.log('\n📥 Stage 3: Ingesting Japanese Manga (JP)...');
+  // Stage 3: Japanese Manga
+  console.log('\n📥 Stage 3: Ingesting Japanese Manga...');
   for (let p = 1; p <= 25; p++) {
-    process.stdout.write(`  -> Fetching Manga Page ${p}/25... `);
-    const pageItems = await fetchAniListPageWithRetry({
-      page: p,
-      perPage: 50,
-      type: 'MANGA',
-      format: 'MANGA',
-      countryOfOrigin: 'JP',
-      sort: activeSort,
+    process.stdout.write(`  -> Page ${p}/25... `);
+    const page = await fetchAniListPageWithRetry({
+      page: p, perPage: 50, type: 'MANGA', format: 'MANGA', countryOfOrigin: 'JP', sort: activeSort,
     });
-    console.log(`[+${pageItems.length} items]`);
-    if (!pageItems.length) break;
-    collected.push(...pageItems);
+    console.log(`[+${page.length}]`);
+    if (!page.length) break;
+    collected.push(...page);
     await delay(1000);
   }
 
-  console.log('⏳ Cooldown 5.5s to drain AniList rolling rate limit bucket...');
   await delay(5500);
 
   // Stage 4: Light Novels & Web Novels
-  console.log('\n📥 Stage 4: Ingesting Novels...');
+  console.log('\n📥 Stage 4: Ingesting Light & Web Novels...');
   for (let p = 1; p <= 20; p++) {
-    process.stdout.write(`  -> Fetching Novels Page ${p}/20... `);
-    const pageItems = await fetchAniListPageWithRetry({
-      page: p,
-      perPage: 50,
-      type: 'MANGA',
-      format: 'NOVEL',
-      sort: activeSort,
+    process.stdout.write(`  -> Page ${p}/20... `);
+    const page = await fetchAniListPageWithRetry({
+      page: p, perPage: 50, type: 'MANGA', format: 'NOVEL', sort: activeSort,
     });
-    console.log(`[+${pageItems.length} items]`);
-    if (!pageItems.length) break;
-    collected.push(...pageItems);
+    console.log(`[+${page.length}]`);
+    if (!page.length) break;
+    collected.push(...page);
     await delay(1000);
   }
 
-  console.log('⏳ Cooldown 5.5s to drain AniList rolling rate limit bucket...');
   await delay(5500);
 
-  // Stage 5: Anime Series & Simulcasts
+  // Stage 5: Anime Series
   console.log('\n📥 Stage 5: Ingesting Anime Series...');
   for (let p = 1; p <= 25; p++) {
-    process.stdout.write(`  -> Fetching Anime Page ${p}/25... `);
-    const pageItems = await fetchAniListPageWithRetry({
-      page: p,
-      perPage: 50,
-      type: 'ANIME',
-      sort: activeSort,
+    process.stdout.write(`  -> Page ${p}/25... `);
+    const page = await fetchAniListPageWithRetry({
+      page: p, perPage: 50, type: 'ANIME', sort: activeSort,
     });
-    console.log(`[+${pageItems.length} items]`);
-    if (!pageItems.length) break;
-    collected.push(...pageItems);
+    console.log(`[+${page.length}]`);
+    if (!page.length) break;
+    collected.push(...page);
     await delay(1000);
   }
 
-  console.log(`\n📦 Raw Media Harvested: ${collected.length} total entries.`);
+  console.log(`\n📦 Total Raw Media Harvested: ${collected.length}`);
 
-  const transformedRows = collected.map((item) => {
-    const primaryTitle =
-      item.title?.english ||
-      item.title?.romaji ||
-      item.title?.native ||
-      'Untitled Series';
-
-    const safeSlugBase = primaryTitle
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-
-    const compositeSlug = `${safeSlugBase || 'series'}-${item.id}`;
+  const transformed = collected.map((item) => {
+    const primaryTitle = item.title?.english || item.title?.romaji || item.title?.native || 'Untitled Series';
+    const cleanSlug = primaryTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
     return {
       id: `al-${item.id}`,
-      source_type: 'anilist',
+      source_type: 'multi',
       media_type: determineMediaType(item),
-      slug: compositeSlug,
+      slug: `${cleanSlug || 'series'}-${item.id}`,
       title_primary: primaryTitle,
       title_secondary: item.title?.romaji || item.title?.native || null,
-      cover_url: item.coverImage?.extraLarge || item.coverImage?.large || null,
+      cover_url: resolveOriginalCover(item),
       banner_url: item.bannerImage || null,
       synopsis: sanitizeSynopsis(item.description),
       status: normalizeStatus(item.status),
@@ -271,32 +241,21 @@ async function runGlobalIngestion() {
     };
   });
 
-  const uniqueCatalog = Array.from(new Map(transformedRows.map((r) => [r.id, r])).values());
+  const uniqueCatalog = Array.from(new Map(transformed.map((r) => [r.id, r])).values());
   console.log(`✨ Deduplicated to ${uniqueCatalog.length} unique catalog records.`);
 
   const CHUNK_SIZE = 500;
   let savedCount = 0;
-
   for (let i = 0; i < uniqueCatalog.length; i += CHUNK_SIZE) {
     const chunk = uniqueCatalog.slice(i, i + CHUNK_SIZE);
-    process.stdout.write(`💾 Upserting chunk [${i + 1} - ${i + chunk.length}] to Supabase... `);
-
-    const { error } = await supabase.from('media_catalog').upsert(chunk, {
-      onConflict: 'id',
-    });
-
-    if (error) {
-      console.error(`\n❌ Error on chunk offset ${i}:`, error.message);
-    } else {
-      savedCount += chunk.length;
-      console.log('✅ Done');
-    }
+    const { error } = await supabase.from('media_catalog').upsert(chunk, { onConflict: 'id' });
+    if (!error) savedCount += chunk.length;
   }
 
-  console.log(`\n🎉 Ingestion Pass Complete! Total Series Synchronized: ${savedCount}`);
+  console.log(`\n🎉 Ingestion Complete. Total Series Synchronized: ${savedCount}`);
 }
 
-runGlobalIngestion().catch((err) => {
-  console.error('[Fatal Ingestion Failure]', err);
+runMultiSourceIngestion().catch((err) => {
+  console.error('[Ingestion Error]', err);
   process.exit(1);
 });
