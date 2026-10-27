@@ -10,19 +10,21 @@ import {
   Bookmark, SlidersHorizontal, RefreshCw, 
   FileDown, Smartphone, Star, 
   Bell, ChevronRight, User, Settings,
-  Flame, Clock
+  Flame, Clock, Shuffle, Home, Check
 } from 'lucide-react';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [navMenuOpen, setNavMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifPopoverOpen, setNotifPopoverOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
-  const [syncModalOpen, setSyncModalOpen] = useState(false);
 
   const [totalCatalogCount, setTotalCatalogCount] = useState<number | null>(null);
 
+  // User & Avatar State
   const [user, setUser] = useState<any>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordLogin, setIsPasswordLogin] = useState(false);
@@ -30,18 +32,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [authError, setAuthError] = useState('');
   const [magicLinkSent, setMagicLinkSent] = useState(false);
 
+  // Live ⌘K Search State
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // PWA Prompt
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
 
-  const [aniListUsername, setAniListUsername] = useState('');
-  const [importLoading, setImportLoading] = useState(false);
-  const [importMessage, setImportMessage] = useState<string | null>(null);
+  // Notifications State
+  const [unreadNotifs, setUnreadNotifs] = useState<any[]>([
+    { id: 1, title: 'Solo Leveling: Ragnarok', desc: 'Chapter 28 dropped today', time: '2h ago', unread: true },
+    { id: 2, title: 'Lord of the Mysteries', desc: 'New volume batch updated', time: '1d ago', unread: true }
+  ]);
 
+  // Load avatar and live catalog count
   useEffect(() => {
     supabase
       .from('media_catalog')
@@ -49,8 +56,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .then(({ count }) => {
         if (count) setTotalCatalogCount(count);
       });
+
+    // Load local avatar cache
+    const savedAvatar = localStorage.getItem('omnidex_user_avatar');
+    if (savedAvatar) setAvatarUrl(savedAvatar);
   }, []);
 
+  // Listen for custom avatar update event from profile page
+  useEffect(() => {
+    const handleAvatarUpdate = (e: any) => {
+      if (e.detail?.url) setAvatarUrl(e.detail.url);
+    };
+    window.addEventListener('omnidex_avatar_changed', handleAvatarUpdate);
+    return () => window.removeEventListener('omnidex_avatar_changed', handleAvatarUpdate);
+  }, []);
+
+  // Keyboard shortcut ⌘K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -60,8 +81,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         setSearchOpen(false);
         setNavMenuOpen(false);
         setUserMenuOpen(false);
+        setNotifPopoverOpen(false);
         setAuthOpen(false);
-        setSyncModalOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -79,17 +100,30 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Auth State Listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      if (session?.user?.id) fetchCloudProfile(session.user.id);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user?.id) fetchCloudProfile(session.user.id);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  async function fetchCloudProfile(userId: string) {
+    try {
+      const { data } = await supabase.from('profiles').select('avatar_url').eq('id', userId).single();
+      if (data?.avatar_url) {
+        setAvatarUrl(data.avatar_url);
+        localStorage.setItem('omnidex_user_avatar', data.avatar_url);
+      }
+    } catch {}
+  }
 
   useEffect(() => {
     if (searchOpen) {
@@ -114,7 +148,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         .limit(8);
       setSearchResults(data || []);
       setSearchLoading(false);
-    }, 200);
+    }, 180);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
@@ -152,101 +186,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const handleAniListImport = async () => {
-    if (!aniListUsername.trim()) return;
-    setImportLoading(true);
-    setImportMessage(null);
-
-    const query = `
-      query ($userName: String) {
-        MediaListCollection(userName: $userName, type: MANGA) {
-          lists {
-            entries {
-              progress
-              status
-              media { id }
-            }
-          }
-        }
-      }
-    `;
-
-    try {
-      const res = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, variables: { userName: aniListUsername.trim() } }),
-      });
-      const json = await res.json();
-      const lists = json?.data?.MediaListCollection?.lists || [];
-      const entries = lists.flatMap((l: any) => l.entries || []);
-
-      if (!entries.length) {
-        setImportMessage('No series entries found for this AniList username.');
-        setImportLoading(false);
-        return;
-      }
-
-      let count = 0;
-      for (const entry of entries) {
-        const alId = `al-${entry.media.id}`;
-        const cleanStatus = entry.status?.toLowerCase() === 'current' ? 'reading' : 'plan_to_read';
-
-        if (user) {
-          await supabase.from('user_tracker').upsert({
-            user_id: user.id,
-            media_id: alId,
-            progress: entry.progress || 0,
-            status: cleanStatus,
-            is_following: true,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id,media_id' });
-          count++;
-        }
-      }
-
-      setImportMessage(`🎉 Successfully imported ${count} series from AniList!`);
-      setTimeout(() => {
-        setSyncModalOpen(false);
-        setImportMessage(null);
-        window.location.reload();
-      }, 1500);
-    } catch {
-      setImportMessage('Could not reach AniList API. Please verify username.');
-    } finally {
-      setImportLoading(false);
-    }
-  };
-
-  const handleExportBackup = async () => {
-    let exportData = [];
-    if (user) {
-      const { data } = await supabase.from('user_tracker').select('*').eq('user_id', user.id);
-      exportData = data || [];
-    } else {
-      exportData = JSON.parse(localStorage.getItem('omnidex_guest_library') || '[]');
-    }
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `omnidex_backup_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
+  const markAllNotifsRead = () => {
+    setUnreadNotifs((prev) => prev.map((n) => ({ ...n, unread: false })));
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#06080d] text-zinc-100">
-      {/* Top Navbar */}
+      {/* Top Fixed Header */}
       <header className="sticky top-0 z-40 w-full bg-[#06080d]/85 backdrop-blur-xl border-b border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
           
-          {/* FAR LEFT: Hamburger Menu Button + Omnidex Brand */}
+          {/* FAR LEFT: Menu Toggle + Omnidex Logo */}
           <div className="flex items-center gap-3">
             <button
               onClick={() => {
                 setNavMenuOpen((prev) => !prev);
                 setUserMenuOpen(false);
+                setNotifPopoverOpen(false);
               }}
               className="p-2 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 text-zinc-300 hover:text-white transition"
               title="Browse Catalog"
@@ -263,7 +219,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
 
-          {/* FAR RIGHT: Search, Notifications & User Avatar */}
+          {/* FAR RIGHT: Search, Notifications & Avatar */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSearchOpen(true)}
@@ -276,24 +232,42 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </kbd>
             </button>
 
-            <Link
-              href="/notifications"
-              className="p-2 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 text-zinc-400 hover:text-white transition relative"
-              title="Notifications"
-            >
-              <Bell className="w-4 h-4" />
-            </Link>
+            {/* Notification Bell with Badge */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setNotifPopoverOpen((prev) => !prev);
+                  setNavMenuOpen(false);
+                  setUserMenuOpen(false);
+                }}
+                className="p-2 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 text-zinc-400 hover:text-white transition relative"
+                title="Notifications"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadNotifs.some((n) => n.unread) && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-[#06080d]" />
+                )}
+              </button>
+            </div>
 
+            {/* User Avatar Badge with Live Custom Image */}
             {user ? (
               <button
                 onClick={() => {
                   setUserMenuOpen((prev) => !prev);
                   setNavMenuOpen(false);
+                  setNotifPopoverOpen(false);
                 }}
-                className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center font-black text-xs text-indigo-400 hover:border-indigo-400 transition"
+                className="w-8 h-8 rounded-xl overflow-hidden border border-indigo-500/40 hover:border-indigo-400 transition flex items-center justify-center bg-zinc-900"
                 title="Account Menu"
               >
-                {user.email?.[0].toUpperCase() || 'U'}
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="font-black text-xs text-indigo-400">
+                    {user.email?.[0].toUpperCase() || 'U'}
+                  </span>
+                )}
               </button>
             ) : (
               <button
@@ -307,14 +281,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* TOP-LEFT: Browse Catalog Floating Popover (<35% Screen Height) */}
+      {/* TOP-LEFT: Browse Catalog Floating Popover (w-[230px], tightly padded) */}
       {navMenuOpen && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-transparent" onClick={() => setNavMenuOpen(false)} />
-          <div className="absolute top-14 left-4 sm:left-6 w-64 rounded-2xl bg-[#0e121b]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-3 z-10 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-1.5">
-              <span className="text-[11px] font-black uppercase tracking-wider text-zinc-400">Browse Catalog</span>
-              <button onClick={() => setNavMenuOpen(false)} className="text-zinc-500 hover:text-white p-0.5">
+          <div className="absolute top-14 left-4 sm:left-6 w-[230px] rounded-2xl bg-[#0e121b]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-2 z-10 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-white/10 px-2 pb-1.5 mb-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Browse</span>
+              <button onClick={() => setNavMenuOpen(false)} className="text-zinc-500 hover:text-white">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -326,24 +300,34 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
               >
                 <div className="flex items-center gap-2">
-                  <Flame className="w-3.5 h-3.5 text-rose-500" />
-                  <span>Trending Series</span>
+                  <Home className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Home</span>
                 </div>
-                <ChevronRight className="w-3 h-3 text-zinc-600" />
               </Link>
 
               <Link
-                href="/filter?sort=score"
+                href="/trending"
                 onClick={() => setNavMenuOpen(false)}
-                className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
+                className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-rose-400 transition"
+              >
+                <div className="flex items-center gap-2">
+                  <Flame className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Trending Series</span>
+                </div>
+              </Link>
+
+              <Link
+                href="/popular"
+                onClick={() => setNavMenuOpen(false)}
+                className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-amber-400 transition"
               >
                 <div className="flex items-center gap-2">
                   <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
                   <span>Popular Series</span>
                 </div>
-                <ChevronRight className="w-3 h-3 text-zinc-600" />
               </Link>
 
+              {/* Clean 'Filter' label removing unnecessary text */}
               <Link
                 href="/filter"
                 onClick={() => setNavMenuOpen(false)}
@@ -351,21 +335,30 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               >
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Filter Series (45+ Genres)</span>
+                  <span>Filter</span>
                 </div>
-                <ChevronRight className="w-3 h-3 text-zinc-600" />
               </Link>
 
               <Link
-                href="/filter?sort=latest"
+                href="/latest"
                 onClick={() => setNavMenuOpen(false)}
-                className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"
+                className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-cyan-400 transition"
               >
                 <div className="flex items-center gap-2">
                   <Clock className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Latest Releases</span>
                 </div>
-                <ChevronRight className="w-3 h-3 text-zinc-600" />
+              </Link>
+
+              <Link
+                href="/random"
+                onClick={() => setNavMenuOpen(false)}
+                className="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-purple-400 transition"
+              >
+                <div className="flex items-center gap-2">
+                  <Shuffle className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Random Series</span>
+                </div>
               </Link>
 
               {showInstallBtn && (
@@ -374,10 +367,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     handleInstallPWA();
                     setNavMenuOpen(false);
                   }}
-                  className="w-full flex items-center justify-between p-2 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 transition text-left mt-1.5"
+                  className="w-full flex items-center justify-between p-2 rounded-xl bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 transition text-left mt-1"
                 >
-                  <span className="flex items-center gap-2">
-                    <Smartphone className="w-3.5 h-3.5" /> Install Omnidex App
+                  <span className="flex items-center gap-2 text-[11px]">
+                    <Smartphone className="w-3.5 h-3.5" /> Install App
                   </span>
                 </button>
               )}
@@ -386,17 +379,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* TOP-RIGHT: User Account Floating Popover (<35% Screen Height) */}
+      {/* TOP-RIGHT: User Account Popover (w-[230px], no dead right padding) */}
       {userMenuOpen && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-transparent" onClick={() => setUserMenuOpen(false)} />
-          <div className="absolute top-14 right-4 sm:right-6 w-64 rounded-2xl bg-[#0e121b]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-2.5 z-10 animate-in fade-in zoom-in-95">
-            <div className="flex items-center gap-2.5 px-2 py-1.5 border-b border-white/10 mb-1">
-              <div className="w-7 h-7 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center font-black text-xs text-indigo-400 flex-shrink-0">
-                {user?.email?.[0].toUpperCase() || 'U'}
+          <div className="absolute top-14 right-4 sm:right-6 w-[230px] rounded-2xl bg-[#0e121b]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-2 z-10 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-2 px-2 py-1.5 border-b border-white/10 mb-1">
+              <div className="w-7 h-7 rounded-lg overflow-hidden bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center font-black text-xs text-indigo-400 flex-shrink-0">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  user?.email?.[0].toUpperCase() || 'U'
+                )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[9px] uppercase font-bold text-zinc-500">Signed In As</p>
+                <p className="text-[9px] uppercase font-bold text-zinc-500">Signed In</p>
                 <p className="text-xs font-bold text-zinc-200 truncate">{user?.email}</p>
               </div>
             </div>
@@ -405,7 +402,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 href="/profile"
                 onClick={() => setUserMenuOpen(false)}
-                className="w-full text-left px-2.5 py-1.5 rounded-xl text-zinc-300 hover:bg-white/5 flex items-center gap-2.5 transition"
+                className="w-full text-left px-2 py-1.5 rounded-xl text-zinc-300 hover:bg-white/5 flex items-center gap-2 transition"
               >
                 <User className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Profile Edit</span>
@@ -414,7 +411,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 href="/library"
                 onClick={() => setUserMenuOpen(false)}
-                className="w-full text-left px-2.5 py-1.5 rounded-xl text-zinc-300 hover:bg-white/5 flex items-center gap-2.5 transition"
+                className="w-full text-left px-2 py-1.5 rounded-xl text-zinc-300 hover:bg-white/5 flex items-center gap-2 transition"
               >
                 <Bookmark className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Library Tracker</span>
@@ -423,27 +420,25 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 href="/notifications"
                 onClick={() => setUserMenuOpen(false)}
-                className="w-full text-left px-2.5 py-1.5 rounded-xl text-zinc-300 hover:bg-white/5 flex items-center gap-2.5 transition"
+                className="w-full text-left px-2 py-1.5 rounded-xl text-zinc-300 hover:bg-white/5 flex items-center gap-2 transition"
               >
                 <Bell className="w-3.5 h-3.5 text-amber-400" />
                 <span>Notifications</span>
               </Link>
 
-              <button
-                onClick={() => {
-                  setSyncModalOpen(true);
-                  setUserMenuOpen(false);
-                }}
-                className="w-full text-left px-2.5 py-1.5 rounded-xl text-zinc-300 hover:bg-white/5 flex items-center gap-2.5 transition"
+              <Link
+                href="/import-export"
+                onClick={() => setUserMenuOpen(false)}
+                className="w-full text-left px-2 py-1.5 rounded-xl text-zinc-300 hover:bg-white/5 flex items-center gap-2 transition"
               >
                 <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Import / Export</span>
-              </button>
+              </Link>
 
               <Link
                 href="/settings"
                 onClick={() => setUserMenuOpen(false)}
-                className="w-full text-left px-2.5 py-1.5 rounded-xl text-zinc-300 hover:bg-white/5 flex items-center gap-2.5 transition"
+                className="w-full text-left px-2 py-1.5 rounded-xl text-zinc-300 hover:bg-white/5 flex items-center gap-2 transition"
               >
                 <Settings className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Settings</span>
@@ -455,7 +450,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   setUserMenuOpen(false);
                   window.location.reload();
                 }}
-                className="w-full text-left px-2.5 py-1.5 rounded-xl text-rose-400 hover:bg-rose-500/10 flex items-center gap-2.5 border-t border-white/5 pt-1.5 transition"
+                className="w-full text-left px-2 py-1.5 rounded-xl text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 border-t border-white/5 pt-1.5 transition"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>Sign Out</span>
@@ -465,7 +460,42 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* ⌘K Search Dialog */}
+      {/* NOTIFICATION BELL POPOVER */}
+      {notifPopoverOpen && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-transparent" onClick={() => setNotifPopoverOpen(false)} />
+          <div className="absolute top-14 right-14 sm:right-20 w-72 rounded-2xl bg-[#0e121b]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-3 z-10 space-y-2 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2">
+              <span className="text-xs font-black text-white">Release Alerts</span>
+              <button
+                onClick={markAllNotifsRead}
+                className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+              >
+                <Check className="w-3 h-3" /> Mark as read
+              </button>
+            </div>
+
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {unreadNotifs.map((n) => (
+                <div key={n.id} className={`p-2 rounded-xl border text-xs transition ${n.unread ? 'bg-indigo-500/10 border-indigo-500/20 text-white' : 'bg-zinc-900 border-white/5 text-zinc-400'}`}>
+                  <p className="font-bold truncate">{n.title}</p>
+                  <p className="text-[10px] text-zinc-400">{n.desc} • {n.time}</p>
+                </div>
+              ))}
+            </div>
+
+            <Link
+              href="/notifications"
+              onClick={() => setNotifPopoverOpen(false)}
+              className="block w-full py-1.5 text-center rounded-xl bg-zinc-900 hover:bg-zinc-800 text-[11px] font-bold text-zinc-300 transition"
+            >
+              See all notifications →
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* LIVE ⌘K SEARCH DIALOG */}
       {searchOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 p-4">
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md" onClick={() => setSearchOpen(false)} />
@@ -524,59 +554,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Sync / Importer Dialog */}
-      {syncModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSyncModalOpen(false)} />
-          <div className="relative w-full max-w-sm bg-zinc-900 border border-white/10 rounded-2xl p-5 shadow-2xl z-10 space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="font-black text-sm text-white flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 text-indigo-400" /> Library Importer
-              </h3>
-              <button onClick={() => setSyncModalOpen(false)} className="text-zinc-400 hover:text-white">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-xl bg-zinc-950 border border-white/5 space-y-2">
-                <label className="font-bold text-zinc-300 block">Import Public AniList Account:</label>
-                <div className="flex gap-2">
-                  <input
-                    value={aniListUsername}
-                    onChange={(e) => setAniListUsername(e.target.value)}
-                    placeholder="Enter AniList username"
-                    className="flex-1 bg-zinc-900 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500"
-                  />
-                  <button
-                    onClick={handleAniListImport}
-                    disabled={importLoading || !aniListUsername.trim()}
-                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-bold rounded-lg transition"
-                  >
-                    {importLoading ? '...' : 'Sync'}
-                  </button>
-                </div>
-              </div>
-
-              {importMessage && (
-                <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold text-center">
-                  {importMessage}
-                </div>
-              )}
-
-              <button
-                onClick={handleExportBackup}
-                className="w-full p-3 rounded-xl bg-zinc-950 hover:bg-zinc-800 border border-white/5 flex items-center justify-between text-zinc-300 font-bold transition"
-              >
-                <span>Export Omnidex Backup (.json)</span>
-                <FileDown className="w-4 h-4 text-indigo-400" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Auth Dialog */}
+      {/* AUTH MODAL */}
       {authOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setAuthOpen(false)} />
@@ -645,7 +623,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Main Content Area */}
+      {/* Main Content Viewport */}
       <main className="flex-1">{children}</main>
 
       {/* Footer */}
@@ -655,11 +633,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex flex-wrap items-center justify-center gap-3 text-zinc-500 text-[11px]">
             <Link href="/filter" className="hover:text-indigo-400 transition">Filter Directory</Link>
             <span>•</span>
-            <Link href="/" className="hover:text-indigo-400 transition">Trending</Link>
+            <Link href="/trending" className="hover:text-indigo-400 transition">Trending</Link>
             <span>•</span>
-            <Link href="/filter?sort=score" className="hover:text-indigo-400 transition">Popular</Link>
+            <Link href="/popular" className="hover:text-indigo-400 transition">Popular</Link>
             <span>•</span>
-            <Link href="/filter?sort=latest" className="hover:text-indigo-400 transition">Latest</Link>
+            <Link href="/latest" className="hover:text-indigo-400 transition">Latest</Link>
+            <span>•</span>
+            <Link href="/random" className="hover:text-indigo-400 transition">Random</Link>
           </div>
           <p className="text-[10px] text-zinc-600">100% Legal Tracking. Links redirect to verified publishers and licensed platforms.</p>
         </div>
