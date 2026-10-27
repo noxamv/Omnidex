@@ -15,42 +15,131 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const ANILIST_GRAPHQL_ENDPOINT = 'https://graphql.anilist.co';
 
-// Verified Canonical Covers for Web Novels
+// Endpoints
+const ANILIST_ENDPOINT = 'https://graphql.anilist.co';
+const MANGADEX_ENDPOINT = 'https://api.mangadex.org';
+const KITSU_ENDPOINT = 'https://kitsu.io/api/edge';
+
+// Canonical Illustrated Covers for Web/Light Novels
 const CANONICAL_NOVEL_COVERS = {
   'lord of the mysteries': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx118485-6nSgLrq0yGvU.jpg',
   'shadow slave': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx164746-bL5x1eFfqVqG.jpg',
   'mother of learning': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx143093-Xh1sE0MvM3d1.jpg',
   'the primal hunter': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx164747-dE4a7aXJ3GqM.jpg',
   'defiance of the fall': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx164748-kL9e5a1b3c4d.jpg',
-  'coiling dragon': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx85403-sO7760rE33o4.jpg',
   'reverend insanity': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx110682-1jRjWv3i6C1X.jpg',
+  'coiling dragon': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx85403-sO7760rE33o4.jpg',
   'the beginning after the end': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx108343-s5e89wO0mK1m.jpg',
-  'solo leveling': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx105398-b6b8bv8bv7b.jpg',
   'trash of the counts family': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx112217-v4B44k1a7V1C.jpg',
 };
 
+// ==============================================================================
+// 1. MANGADEX API INGESTION (Official Manga, Manhwa, Manhua Volume Covers)
+// ==============================================================================
+async function fetchMangaDexBatch(limit = 100, offset = 0) {
+  try {
+    const url = `${MANGADEX_ENDPOINT}/manga?limit=${limit}&offset=${offset}&includes[]=cover_art&order[followedCount]=desc&contentRating[]=safe&contentRating[]=suggestive`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Omnidex-Catalog-Sync/3.0' },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const data = json.data || [];
+
+    return data.map((item) => {
+      const title = item.attributes?.title?.en || Object.values(item.attributes?.title || {})[0] || 'Untitled';
+      const coverRel = item.relationships?.find((r) => r.type === 'cover_art');
+      const fileName = coverRel?.attributes?.fileName;
+      const coverUrl = fileName ? `https://uploads.mangadex.org/covers/${item.id}/${fileName}.512.jpg` : null;
+      const origLang = item.attributes?.originalLanguage;
+
+      let mediaType = 'manga';
+      if (origLang === 'ko') mediaType = 'manhwa';
+      else if (origLang === 'zh' || origLang === 'zh-hk') mediaType = 'manhua';
+
+      const cleanSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+      return {
+        id: `md-${item.id}`,
+        source_type: 'mangadex',
+        media_type: mediaType,
+        slug: `${cleanSlug || 'series'}-${item.id.slice(0, 8)}`,
+        title_primary: title,
+        title_secondary: item.attributes?.altTitles?.find((t) => t.ja || t.ko || t.zh)?.ja || null,
+        cover_url: coverUrl,
+        banner_url: null,
+        synopsis: item.attributes?.description?.en || null,
+        status: item.attributes?.status === 'completed' ? 'finished' : 'releasing',
+        format: mediaType.toUpperCase(),
+        score: null,
+        total_units: item.attributes?.lastChapter ? parseInt(item.attributes.lastChapter) || 0 : 0,
+        genres: (item.attributes?.tags || []).map((t) => t.attributes?.name?.en).filter(Boolean),
+        official_links: [{ site: 'MangaDex', url: `https://mangadex.org/title/${item.id}` }],
+        updated_at: new Date().toISOString(),
+      };
+    });
+  } catch (err) {
+    console.warn('[MangaDex Fetch Warning]', err.message);
+    return [];
+  }
+}
+
+// ==============================================================================
+// 2. KITSU API INGESTION (Anime & Manga High-Res Posters)
+// ==============================================================================
+async function fetchKitsuBatch(type = 'anime', limit = 20, offset = 0) {
+  try {
+    const url = `${KITSU_ENDPOINT}/${type}?page[limit]=${limit}&page[offset]=${offset}&sort=-userCount`;
+    const res = await fetch(url, {
+      headers: { 'Accept': 'application/vnd.api+json' },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const data = json.data || [];
+
+    return data.map((item) => {
+      const attr = item.attributes || {};
+      const title = attr.canonicalTitle || attr.titles?.en || attr.titles?.en_jp || 'Untitled';
+      const cleanSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+      return {
+        id: `kt-${item.id}`,
+        source_type: 'kitsu',
+        media_type: type === 'anime' ? 'anime' : (attr.subtype === 'manhwa' ? 'manhwa' : 'manga'),
+        slug: `${cleanSlug || 'series'}-${item.id}`,
+        title_primary: title,
+        title_secondary: attr.titles?.ja_jp || null,
+        cover_url: attr.posterImage?.large || attr.posterImage?.original || null,
+        banner_url: attr.coverImage?.large || null,
+        synopsis: attr.synopsis || null,
+        status: attr.status === 'finished' ? 'finished' : 'releasing',
+        format: attr.subtype?.toUpperCase() || type.toUpperCase(),
+        score: attr.averageRating ? parseFloat((parseFloat(attr.averageRating) / 10).toFixed(1)) : null,
+        total_units: attr.episodeCount || attr.chapterCount || 0,
+        genres: [],
+        official_links: [{ site: 'Kitsu', url: `https://kitsu.io/${type}/${attr.slug || item.id}` }],
+        updated_at: new Date().toISOString(),
+      };
+    });
+  } catch (err) {
+    console.warn('[Kitsu Fetch Warning]', err.message);
+    return [];
+  }
+}
+
+// ==============================================================================
+// 3. ANILIST GRAPHQL INGESTION (Taxonomy & Novels)
+// ==============================================================================
 const ANILIST_PAGE_QUERY = `
 query ($page: Int, $perPage: Int, $type: MediaType, $format: MediaFormat, $countryOfOrigin: CountryCode, $sort: [MediaSort]) {
   Page(page: $page, perPage: $perPage) {
-    pageInfo {
-      hasNextPage
-    }
     media(type: $type, format: $format, countryOfOrigin: $countryOfOrigin, sort: $sort) {
       id
-      idMal
       type
       format
-      title {
-        english
-        romaji
-        native
-      }
-      coverImage {
-        extraLarge
-        large
-      }
+      title { english romaji native }
+      coverImage { extraLarge large }
       bannerImage
       description(asHtml: false)
       status
@@ -59,203 +148,126 @@ query ($page: Int, $perPage: Int, $type: MediaType, $format: MediaFormat, $count
       chapters
       genres
       countryOfOrigin
-      externalLinks {
-        site
-        url
-      }
+      externalLinks { site url }
     }
   }
 }
 `;
 
-function determineMediaType(item) {
-  if (item.format === 'NOVEL' || item.type === 'NOVEL') return 'novel';
-  if (item.type === 'ANIME') return 'anime';
-  if (item.countryOfOrigin === 'KR' || item.format === 'MANHWA') return 'manhwa';
-  if (item.countryOfOrigin === 'CN') return 'manhua';
-  return 'manga';
-}
-
-function resolveOriginalCover(item) {
-  const primary = (item.title?.english || item.title?.romaji || '').toLowerCase();
+function resolveNovelCover(title, fallback) {
+  const lower = (title || '').toLowerCase();
   for (const [key, url] of Object.entries(CANONICAL_NOVEL_COVERS)) {
-    if (primary.includes(key)) return url;
+    if (lower.includes(key)) return url;
   }
-  const raw = item.coverImage?.extraLarge || item.coverImage?.large;
-  if (!raw || raw.includes('unsplash') || raw.includes('placeholder')) {
-    if (item.idMal) {
-      return `https://images.weserv.nl/?url=https://cdn.myanimelist.net/images/${item.type === 'ANIME' ? 'anime' : 'manga'}/1/${item.idMal}.jpg`;
-    }
-    return 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/default.jpg';
-  }
-  return raw;
+  return fallback;
 }
 
-async function fetchAniListPageWithRetry(variables, maxRetries = 3) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
-
-      const res = await fetch(ANILIST_GRAPHQL_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': 'Omnidex-MultiPlatform-Harvester/3.0',
-        },
-        body: JSON.stringify({ query: ANILIST_PAGE_QUERY, variables }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeout);
-      if (res.status === 429) {
-        console.warn(`[AniList 429] Rolling rate limit hit. Pausing 10s (Attempt ${attempt}/${maxRetries})...`);
-        await delay(10000);
-        continue;
-      }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      return json.data?.Page?.media || [];
-    } catch (err) {
-      if (attempt === maxRetries) return [];
-      await delay(attempt * 2500);
-    }
+async function fetchAniListBatch(variables) {
+  try {
+    const res = await fetch(ANILIST_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ query: ANILIST_PAGE_QUERY, variables }),
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data?.Page?.media || [];
+  } catch {
+    return [];
   }
-  return [];
 }
 
-async function runMultiSourceIngestion() {
-  console.log('=== Omnidex Multi-Source Harvester Online ===');
+// ==============================================================================
+// MAIN MULTI-PLATFORM HARVESTER
+// ==============================================================================
+async function runMultiPlatformIngestion() {
+  console.log('=== Omnidex Multi-Platform Catalog Engine Online ===');
+  console.log(`Sources: MangaDex API + Kitsu API + AniList GraphQL`);
   console.log(`Execution Time: ${new Date().toISOString()}`);
 
-  const currentHour = new Date().getUTCHours();
-  const sortOptions = [
-    ['POPULARITY_DESC'],
-    ['TRENDING_DESC'],
-    ['UPDATED_AT_DESC'],
-    ['START_DATE_DESC'],
-    ['FAVOURITES_DESC'],
-  ];
-  const activeSort = sortOptions[currentHour % sortOptions.length];
-  console.log(`Active Sort: [${activeSort.join(', ')}]`);
+  const allRecords = [];
 
-  let collected = [];
+  // STAGE 1: MangaDex Official Covers
+  console.log('\n📥 Stage 1: Ingesting verified titles from MangaDex API...');
+  for (let offset = 0; offset <= 400; offset += 100) {
+    process.stdout.write(`  -> Fetching MangaDex offset ${offset}... `);
+    const mdItems = await fetchMangaDexBatch(100, offset);
+    console.log(`[+${mdItems.length} titles]`);
+    allRecords.push(...mdItems);
+    await delay(1200);
+  }
 
-  // Stage 1: Korean Manhwa
-  console.log('\n📥 Stage 1: Ingesting Korean Manhwa...');
-  for (let p = 1; p <= 25; p++) {
-    process.stdout.write(`  -> Page ${p}/25... `);
-    const page = await fetchAniListPageWithRetry({
-      page: p, perPage: 50, type: 'MANGA', countryOfOrigin: 'KR', sort: activeSort,
+  // STAGE 2: Kitsu Anime & Manga
+  console.log('\n📥 Stage 2: Ingesting high-res posters from Kitsu API...');
+  for (let offset = 0; offset <= 200; offset += 20) {
+    process.stdout.write(`  -> Fetching Kitsu Anime offset ${offset}... `);
+    const ktAnime = await fetchKitsuBatch('anime', 20, offset);
+    console.log(`[+${ktAnime.length} titles]`);
+    allRecords.push(...ktAnime);
+    await delay(600);
+  }
+
+  // STAGE 3: AniList (Web Novels & Core Catalog)
+  console.log('\n📥 Stage 3: Ingesting Light & Web Novels from AniList...');
+  for (let p = 1; p <= 15; p++) {
+    process.stdout.write(`  -> Fetching AniList Novels Page ${p}/15... `);
+    const alNovels = await fetchAniListBatch({
+      page: p, perPage: 50, type: 'MANGA', format: 'NOVEL', sort: ['POPULARITY_DESC'],
     });
-    console.log(`[+${page.length}]`);
-    if (!page.length) break;
-    collected.push(...page);
+    console.log(`[+${alNovels.length} titles]`);
+    const mapped = alNovels.map((item) => {
+      const primaryTitle = item.title?.english || item.title?.romaji || item.title?.native || 'Untitled Novel';
+      const cleanSlug = primaryTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const cover = resolveNovelCover(primaryTitle, item.coverImage?.extraLarge || item.coverImage?.large);
+
+      return {
+        id: `al-${item.id}`,
+        source_type: 'anilist',
+        media_type: 'novel',
+        slug: `${cleanSlug || 'novel'}-${item.id}`,
+        title_primary: primaryTitle,
+        title_secondary: item.title?.romaji || item.title?.native || null,
+        cover_url: cover,
+        banner_url: item.bannerImage || null,
+        synopsis: item.description?.replace(/<[^>]*>/g, '')?.trim() || null,
+        status: item.status?.toLowerCase() === 'completed' ? 'finished' : 'releasing',
+        format: 'NOVEL',
+        score: item.averageScore ? parseFloat((item.averageScore / 10).toFixed(1)) : null,
+        total_units: item.chapters || 0,
+        genres: item.genres || [],
+        official_links: extractOfficialLinks(item.externalLinks),
+        updated_at: new Date().toISOString(),
+      };
+    });
+    allRecords.push(...mapped);
     await delay(1000);
   }
 
-  await delay(5500);
+  console.log(`\n📦 Total Raw Media Harvested: ${allRecords.length}`);
 
-  // Stage 2: Chinese Manhua
-  console.log('\n📥 Stage 2: Ingesting Chinese Manhua...');
-  for (let p = 1; p <= 20; p++) {
-    process.stdout.write(`  -> Page ${p}/20... `);
-    const page = await fetchAniListPageWithRetry({
-      page: p, perPage: 50, type: 'MANGA', countryOfOrigin: 'CN', sort: activeSort,
-    });
-    console.log(`[+${page.length}]`);
-    if (!page.length) break;
-    collected.push(...page);
-    await delay(1000);
-  }
-
-  await delay(5500);
-
-  // Stage 3: Japanese Manga
-  console.log('\n📥 Stage 3: Ingesting Japanese Manga...');
-  for (let p = 1; p <= 25; p++) {
-    process.stdout.write(`  -> Page ${p}/25... `);
-    const page = await fetchAniListPageWithRetry({
-      page: p, perPage: 50, type: 'MANGA', format: 'MANGA', countryOfOrigin: 'JP', sort: activeSort,
-    });
-    console.log(`[+${page.length}]`);
-    if (!page.length) break;
-    collected.push(...page);
-    await delay(1000);
-  }
-
-  await delay(5500);
-
-  // Stage 4: Light Novels & Web Novels
-  console.log('\n📥 Stage 4: Ingesting Light & Web Novels...');
-  for (let p = 1; p <= 20; p++) {
-    process.stdout.write(`  -> Page ${p}/20... `);
-    const page = await fetchAniListPageWithRetry({
-      page: p, perPage: 50, type: 'MANGA', format: 'NOVEL', sort: activeSort,
-    });
-    console.log(`[+${page.length}]`);
-    if (!page.length) break;
-    collected.push(...page);
-    await delay(1000);
-  }
-
-  await delay(5500);
-
-  // Stage 5: Anime Series
-  console.log('\n📥 Stage 5: Ingesting Anime Series...');
-  for (let p = 1; p <= 25; p++) {
-    process.stdout.write(`  -> Page ${p}/25... `);
-    const page = await fetchAniListPageWithRetry({
-      page: p, perPage: 50, type: 'ANIME', sort: activeSort,
-    });
-    console.log(`[+${page.length}]`);
-    if (!page.length) break;
-    collected.push(...page);
-    await delay(1000);
-  }
-
-  console.log(`\n📦 Total Raw Media Harvested: ${collected.length}`);
-
-  const transformed = collected.map((item) => {
-    const primaryTitle = item.title?.english || item.title?.romaji || item.title?.native || 'Untitled Series';
-    const cleanSlug = primaryTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-
-    return {
-      id: `al-${item.id}`,
-      source_type: 'multi',
-      media_type: determineMediaType(item),
-      slug: `${cleanSlug || 'series'}-${item.id}`,
-      title_primary: primaryTitle,
-      title_secondary: item.title?.romaji || item.title?.native || null,
-      cover_url: resolveOriginalCover(item),
-      banner_url: item.bannerImage || null,
-      synopsis: sanitizeSynopsis(item.description),
-      status: normalizeStatus(item.status),
-      format: item.format || null,
-      score: item.averageScore ? parseFloat((item.averageScore / 10).toFixed(1)) : null,
-      total_units: item.episodes || item.chapters || 0,
-      genres: Array.isArray(item.genres) ? item.genres : [],
-      official_links: extractOfficialLinks(item.externalLinks),
-      updated_at: new Date().toISOString(),
-    };
-  });
-
-  const uniqueCatalog = Array.from(new Map(transformed.map((r) => [r.id, r])).values());
+  // Deduplicate by ID
+  const uniqueCatalog = Array.from(new Map(allRecords.map((r) => [r.id, r])).values());
   console.log(`✨ Deduplicated to ${uniqueCatalog.length} unique catalog records.`);
 
+  // Upsert in batches of 500
   const CHUNK_SIZE = 500;
   let savedCount = 0;
   for (let i = 0; i < uniqueCatalog.length; i += CHUNK_SIZE) {
     const chunk = uniqueCatalog.slice(i, i + CHUNK_SIZE);
+    process.stdout.write(`💾 Upserting chunk [${i + 1} - ${i + chunk.length}] to Supabase... `);
     const { error } = await supabase.from('media_catalog').upsert(chunk, { onConflict: 'id' });
-    if (!error) savedCount += chunk.length;
+    if (!error) {
+      savedCount += chunk.length;
+      console.log('✅ Done');
+    } else {
+      console.error('❌ Error:', error.message);
+    }
   }
 
-  console.log(`\n🎉 Ingestion Complete. Total Series Synchronized: ${savedCount}`);
+  console.log(`\n🎉 Multi-Platform Ingestion Complete! Total Synchronized: ${savedCount}`);
 }
 
-runMultiSourceIngestion().catch((err) => {
-  console.error('[Ingestion Error]', err);
+runMultiPlatformIngestion().catch((err) => {
+  console.error('[Fatal Ingestion Failure]', err);
   process.exit(1);
 });
