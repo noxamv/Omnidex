@@ -21,34 +21,35 @@ const ANILIST_ENDPOINT = 'https://graphql.anilist.co';
 const MANGADEX_ENDPOINT = 'https://api.mangadex.org';
 const KITSU_ENDPOINT = 'https://kitsu.io/api/edge';
 
-// Verified Canonical Covers for Web/Light Novels
+// Wrap external image through our unblocked Next.js proxy route
+function proxyUrl(targetUrl) {
+  if (!targetUrl) return null;
+  if (targetUrl.startsWith('/api/proxy')) return targetUrl;
+  return `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+}
+
+// Verified Canonical Covers for Web & Light Novels (Routed through internal proxy)
 const CANONICAL_NOVEL_COVERS = {
-  'lord of the mysteries': 'https://upload.wikimedia.org/wikipedia/en/b/b6/Lord_of_the_Mysteries_Volume_1.jpg',
-  'shadow slave': 'https://static.wikia.nocookie.net/shadow-slave/images/5/5f/Shadow_Slave_Cover.jpg',
-  'mother of learning': 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1637779836i/59661342.jpg',
-  'the primal hunter': 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1647466547i/60655822.jpg',
-  'defiance of the fall': 'https://images-na.ssl-images-amazon.com/images/S/compressed.photo.goodreads.com/books/1628107567i/57999863.jpg',
-  'reverend insanity': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx110682-1jRjWv3i6C1X.jpg',
-  'coiling dragon': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx85403-sO7760rE33o4.jpg',
-  'the beginning after the end': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx108343-s5e89wO0mK1m.jpg',
-  'trash of the counts family': 'https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx112217-v4B44k1a7V1C.jpg',
+  'lord of the mysteries': proxyUrl('https://upload.wikimedia.org/wikipedia/en/b/b6/Lord_of_the_Mysteries_Volume_1.jpg'),
+  'shadow slave': proxyUrl('https://m.media-amazon.com/images/I/71K8pXpB7WL._AC_UF1000,1000_QL80_.jpg'),
+  'mother of learning': proxyUrl('https://m.media-amazon.com/images/I/81bSwgWvHUL._AC_UF1000,1000_QL80_.jpg'),
+  'the primal hunter': proxyUrl('https://m.media-amazon.com/images/I/81k4B7aGzAL._AC_UF1000,1000_QL80_.jpg'),
+  'defiance of the fall': proxyUrl('https://m.media-amazon.com/images/I/81b21Fz9V0L._AC_UF1000,1000_QL80_.jpg'),
+  'reverend insanity': proxyUrl('https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx110682-1jRjWv3i6C1X.jpg'),
+  'coiling dragon': proxyUrl('https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx85403-sO7760rE33o4.jpg'),
+  'the beginning after the end': proxyUrl('https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx108343-s5e89wO0mK1m.jpg'),
+  'trash of the counts family': proxyUrl('https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx112217-v4B44k1a7V1C.jpg'),
 };
 
-// Normalization Helper for Title Comparison
+// Normalization Helpers
 function normalizeTitle(raw) {
   if (!raw) return '';
-  return raw
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
-    .trim();
+  return raw.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
 }
 
 function normalizeSlug(raw) {
   if (!raw) return 'series';
-  return raw
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
+  return raw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
 
 function resolveNovelCover(title, fallback) {
@@ -56,37 +57,59 @@ function resolveNovelCover(title, fallback) {
   for (const [key, url] of Object.entries(CANONICAL_NOVEL_COVERS)) {
     if (lower.includes(key)) return url;
   }
-  return fallback;
+  return fallback ? proxyUrl(fallback) : null;
 }
 
-// Global In-Memory Fingerprint Set (Tracks title + media_type pairs)
-const seenFingerprints = new Set();
+function isBadCover(url) {
+  if (!url || typeof url !== 'string') return true;
+  const clean = url.trim().toLowerCase();
+  return (
+    clean === '' ||
+    clean.includes('unsplash') ||
+    clean.includes('placeholder') ||
+    clean.includes('default.jpg') ||
+    clean.includes('no-image')
+  );
+}
+
+// In-Memory Catalog Tracking Sets
+const healthyFingerprints = new Set();
+const brokenCoverFingerprints = new Set();
 const seenIds = new Set();
 
-function isDuplicate(title, mediaType) {
+function shouldProcessItem(title, mediaType) {
   const norm = normalizeTitle(title);
-  if (!norm) return true;
+  if (!norm) return false;
   const key = `${norm}:::${mediaType.toLowerCase()}`;
-  return seenFingerprints.has(key);
+
+  // If already healthy in database, skip it to save quota
+  if (healthyFingerprints.has(key)) {
+    return false;
+  }
+
+  // If totally unseen OR currently marked with a broken cover, process it!
+  return true;
 }
 
-function registerFingerprint(title, mediaType, id) {
+function markProcessed(title, mediaType, id, hasGoodCover) {
   const norm = normalizeTitle(title);
-  if (norm) {
-    seenFingerprints.add(`${norm}:::${mediaType.toLowerCase()}`);
+  const key = `${norm}:::${mediaType.toLowerCase()}`;
+  if (hasGoodCover) {
+    healthyFingerprints.add(key);
+    brokenCoverFingerprints.delete(key);
+  } else {
+    brokenCoverFingerprints.add(key);
   }
-  if (id) {
-    seenIds.add(id);
-  }
+  if (id) seenIds.add(id);
 }
 
 // ==============================================================================
-// 1. MANGADEX INGESTION (Manga, Manhwa, Manhua with Official Covers)
+// 1. MANGADEX INGESTION ENGINE (Official Volume Covers)
 // ==============================================================================
 async function fetchMangaDexBatch(limit = 100, offset = 0) {
   try {
     const url = `${MANGADEX_ENDPOINT}/manga?limit=${limit}&offset=${offset}&includes[]=cover_art&order[followedCount]=desc&contentRating[]=safe&contentRating[]=suggestive`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'Omnidex-Catalog-Sync/4.0' } });
+    const res = await fetch(url, { headers: { 'User-Agent': 'Omnidex-Catalog-Sync/5.0' } });
     if (!res.ok) return [];
     const json = await res.json();
     const data = json.data || [];
@@ -100,16 +123,16 @@ async function fetchMangaDexBatch(limit = 100, offset = 0) {
       if (origLang === 'ko') mediaType = 'manhwa';
       else if (origLang === 'zh' || origLang === 'zh-hk') mediaType = 'manhua';
 
-      // Skip if already in database or collected earlier in this run
-      if (isDuplicate(title, mediaType) || seenIds.has(`md-${item.id}`)) {
+      if (!shouldProcessItem(title, mediaType)) {
         continue;
       }
 
       const coverRel = item.relationships?.find((r) => r.type === 'cover_art');
       const fileName = coverRel?.attributes?.fileName;
-      const coverUrl = fileName ? `https://uploads.mangadex.org/covers/${item.id}/${fileName}.512.jpg` : null;
+      const rawCover = fileName ? `https://uploads.mangadex.org/covers/${item.id}/${fileName}.512.jpg` : null;
+      const coverUrl = rawCover ? proxyUrl(rawCover) : null;
 
-      registerFingerprint(title, mediaType, `md-${item.id}`);
+      markProcessed(title, mediaType, `md-${item.id}`, !isBadCover(coverUrl));
 
       results.push({
         id: `md-${item.id}`,
@@ -132,13 +155,13 @@ async function fetchMangaDexBatch(limit = 100, offset = 0) {
     }
     return results;
   } catch (err) {
-    console.warn('[MangaDex Warning]', err.message);
+    console.warn('[MangaDex Fetch Warning]', err.message);
     return [];
   }
 }
 
 // ==============================================================================
-// 2. KITSU INGESTION (Anime & Missing Adaptations)
+// 2. KITSU INGESTION ENGINE (Anime & Adaptations)
 // ==============================================================================
 async function fetchKitsuBatch(type = 'anime', limit = 20, offset = 0) {
   try {
@@ -154,12 +177,14 @@ async function fetchKitsuBatch(type = 'anime', limit = 20, offset = 0) {
       const title = attr.canonicalTitle || attr.titles?.en || attr.titles?.en_jp || '';
       const mediaType = type === 'anime' ? 'anime' : (attr.subtype === 'manhwa' ? 'manhwa' : 'manga');
 
-      // Skip duplicate in same format (e.g. Lookism Anime will NOT be skipped if Lookism Manhwa exists)
-      if (isDuplicate(title, mediaType) || seenIds.has(`kt-${item.id}`)) {
+      if (!shouldProcessItem(title, mediaType)) {
         continue;
       }
 
-      registerFingerprint(title, mediaType, `kt-${item.id}`);
+      const rawCover = attr.posterImage?.large || attr.posterImage?.original || null;
+      const coverUrl = rawCover ? proxyUrl(rawCover) : null;
+
+      markProcessed(title, mediaType, `kt-${item.id}`, !isBadCover(coverUrl));
 
       results.push({
         id: `kt-${item.id}`,
@@ -168,8 +193,8 @@ async function fetchKitsuBatch(type = 'anime', limit = 20, offset = 0) {
         slug: `${normalizeSlug(title)}-kt-${item.id}`,
         title_primary: title,
         title_secondary: attr.titles?.ja_jp || null,
-        cover_url: attr.posterImage?.large || attr.posterImage?.original || null,
-        banner_url: attr.coverImage?.large || null,
+        cover_url: coverUrl,
+        banner_url: attr.coverImage?.large ? proxyUrl(attr.coverImage.large) : null,
         synopsis: attr.synopsis || null,
         status: attr.status === 'finished' ? 'finished' : 'releasing',
         format: attr.subtype?.toUpperCase() || type.toUpperCase(),
@@ -182,13 +207,13 @@ async function fetchKitsuBatch(type = 'anime', limit = 20, offset = 0) {
     }
     return results;
   } catch (err) {
-    console.warn('[Kitsu Warning]', err.message);
+    console.warn('[Kitsu Fetch Warning]', err.message);
     return [];
   }
 }
 
 // ==============================================================================
-// 3. ANILIST INGESTION (Web/Light Novels & Core Backfill)
+// 3. ANILIST INGESTION ENGINE (Web & Light Novels + Core Catalog)
 // ==============================================================================
 const ANILIST_PAGE_QUERY = `
 query ($page: Int, $perPage: Int, $type: MediaType, $format: MediaFormat, $countryOfOrigin: CountryCode, $sort: [MediaSort]) {
@@ -229,22 +254,24 @@ async function fetchAniListBatch(variables) {
 }
 
 // ==============================================================================
-// MAIN DEDUPLICATED INGESTION PIPELINE
+// MAIN DEDUPLICATED & SELF-HEALING HARVESTER
 // ==============================================================================
-async function runDeduplicatedIngestion() {
-  console.log('=== Omnidex Deduplicated Multi-Source Harvester Online ===');
+async function runSelfHealingIngestion() {
+  console.log('=== Omnidex Deduplicated & Self-Healing Harvester Online ===');
   console.log(`Execution Timestamp: ${new Date().toISOString()}`);
 
-  // 1. Preload existing database fingerprints into memory
-  console.log('\n🔍 Preloading catalog index to avoid duplicate requests...');
+  // 1. Preload existing database fingerprints and inspect cover health
+  console.log('\n🔍 Preloading catalog index and diagnosing cover integrity...');
   let hasMore = true;
   let offset = 0;
   const PAGE_SIZE = 1000;
+  let totalScanned = 0;
+  let badCoversFound = 0;
 
   while (hasMore) {
     const { data: existing, error } = await supabase
       .from('media_catalog')
-      .select('id, title_primary, media_type')
+      .select('id, title_primary, media_type, cover_url')
       .range(offset, offset + PAGE_SIZE - 1);
 
     if (error || !existing || existing.length === 0) {
@@ -253,47 +280,60 @@ async function runDeduplicatedIngestion() {
     }
 
     for (const row of existing) {
-      registerFingerprint(row.title_primary, row.media_type, row.id);
+      totalScanned++;
+      const norm = normalizeTitle(row.title_primary);
+      const key = `${norm}:::${row.media_type.toLowerCase()}`;
+      
+      if (isBadCover(row.cover_url)) {
+        badCoversFound++;
+        brokenCoverFingerprints.add(key);
+      } else {
+        healthyFingerprints.add(key);
+      }
+      seenIds.add(row.id);
     }
 
     offset += PAGE_SIZE;
     if (existing.length < PAGE_SIZE) hasMore = false;
   }
 
-  console.log(`✅ Loaded ${seenFingerprints.size} existing (title + medium) fingerprints.`);
+  console.log(`📊 Catalog Diagnostics Complete:`);
+  console.log(`   - Total Scanned Records: ${totalScanned}`);
+  console.log(`   - Healthy Records Protected (Will Skip): ${healthyFingerprints.size}`);
+  console.log(`   - Broken/Placeholder Covers Detected (Targeted for Healing): ${badCoversFound}`);
 
-  // 2. Compute dynamic page offset based on hour to crawl deeper
+  // 2. Compute dynamic page offset based on current UTC hour
   const hour = new Date().getUTCHours();
-  const pageOffset = (hour * 4) % 40; // Cycles deeper through pages 0 to 40
+  const pageOffset = (hour * 4) % 60;
   console.log(`📄 Dynamic Page Window Start Offset: ${pageOffset}`);
 
-  const newlyCollected = [];
+  const batchQueue = [];
 
-  // STAGE 1: MangaDex (Fetch new Manhwa, Manhua & Manga not yet in DB)
-  console.log('\n📥 Stage 1: Ingesting fresh titles from MangaDex API...');
-  for (let p = 0; p < 4; p++) {
+  // STAGE 1: MangaDex (Official Volume Covers)
+  console.log('\n📥 Stage 1: Harvesting MangaDex API...');
+  for (let p = 0; p < 20; p++) {
     const curOffset = (pageOffset * 100) + (p * 100);
     process.stdout.write(`  -> MangaDex offset ${curOffset}... `);
     const batch = await fetchMangaDexBatch(100, curOffset);
-    console.log(`[+${batch.length} new unique titles]`);
-    newlyCollected.push(...batch);
-    await delay(1200);
+    console.log(`[+${batch.length} actionable titles]`);
+    batchQueue.push(...batch);
+    await delay(1000);
   }
 
-  // STAGE 2: Kitsu Anime (Pulls Lookism, Solo Leveling Anime adaptations)
-  console.log('\n📥 Stage 2: Ingesting anime adaptations from Kitsu API...');
-  for (let p = 0; p < 5; p++) {
+  // STAGE 2: Kitsu Anime (Simulcast Posters & Adaptations)
+  console.log('\n📥 Stage 2: Harvesting Kitsu Anime API...');
+  for (let p = 0; p < 50; p++) {
     const curOffset = (pageOffset * 20) + (p * 20);
     process.stdout.write(`  -> Kitsu Anime offset ${curOffset}... `);
     const batch = await fetchKitsuBatch('anime', 20, curOffset);
-    console.log(`[+${batch.length} new unique anime]`);
-    newlyCollected.push(...batch);
-    await delay(600);
+    console.log(`[+${batch.length} actionable anime]`);
+    batchQueue.push(...batch);
+    await delay(500);
   }
 
-  // STAGE 3: AniList Novels (Fills in light & web novels)
-  console.log('\n📥 Stage 3: Ingesting novels from AniList GraphQL...');
-  for (let p = 1; p <= 8; p++) {
+  // STAGE 3: AniList Novels (Web/Light Novels)
+  console.log('\n📥 Stage 3: Harvesting AniList Novels & Light Novels...');
+  for (let p = 1; p <= 12; p++) {
     const pageNum = pageOffset + p;
     process.stdout.write(`  -> AniList Novels Page ${pageNum}... `);
     const alNovels = await fetchAniListBatch({
@@ -304,27 +344,28 @@ async function runDeduplicatedIngestion() {
       sort: ['POPULARITY_DESC'],
     });
 
-    let novelCount = 0;
+    let count = 0;
     for (const item of alNovels) {
       const primaryTitle = item.title?.english || item.title?.romaji || item.title?.native || '';
-      
-      // Skip duplicate in same format
-      if (isDuplicate(primaryTitle, 'novel') || seenIds.has(`al-${item.id}`)) {
+
+      if (!shouldProcessItem(primaryTitle, 'novel')) {
         continue;
       }
 
-      registerFingerprint(primaryTitle, 'novel', `al-${item.id}`);
+      const rawCover = item.coverImage?.extraLarge || item.coverImage?.large;
+      const finalCover = resolveNovelCover(primaryTitle, rawCover);
 
-      const cover = resolveNovelCover(primaryTitle, item.coverImage?.extraLarge || item.coverImage?.large);
-      newlyCollected.push({
+      markProcessed(primaryTitle, 'novel', `al-${item.id}`, !isBadCover(finalCover));
+
+      batchQueue.push({
         id: `al-${item.id}`,
         source_type: 'anilist',
         media_type: 'novel',
         slug: `${normalizeSlug(primaryTitle)}-${item.id}`,
         title_primary: primaryTitle,
         title_secondary: item.title?.romaji || item.title?.native || null,
-        cover_url: cover,
-        banner_url: item.bannerImage || null,
+        cover_url: finalCover,
+        banner_url: item.bannerImage ? proxyUrl(item.bannerImage) : null,
         synopsis: item.description?.replace(/<[^>]*>/g, '')?.trim() || null,
         status: item.status?.toLowerCase() === 'completed' ? 'finished' : 'releasing',
         format: 'NOVEL',
@@ -334,25 +375,29 @@ async function runDeduplicatedIngestion() {
         official_links: extractOfficialLinks(item.externalLinks),
         updated_at: new Date().toISOString(),
       });
-      novelCount++;
+      count++;
     }
-    console.log(`[+${novelCount} new unique novels]`);
+    console.log(`[+${count} actionable novels]`);
     await delay(1000);
   }
 
-  console.log(`\n📦 Total New Unique Media Found: ${newlyCollected.length}`);
+  console.log(`\n📦 Total Processable Batch Queue: ${batchQueue.length}`);
 
-  if (newlyCollected.length === 0) {
-    console.log('✨ All queried titles already exist in your database. Zero redundant writes performed.');
+  if (batchQueue.length === 0) {
+    console.log('✨ All queried titles are already synchronized and healthy. Zero writes needed.');
     return;
   }
 
-  // 4. Batch upsert only genuinely new titles
+  // Deduplicate before saving
+  const uniqueRecords = Array.from(new Map(batchQueue.map((r) => [r.id, r])).values());
+  console.log(`✨ Deduplicated to ${uniqueRecords.length} unique records to write.`);
+
+  // 4. Batch upsert
   const CHUNK_SIZE = 500;
   let savedCount = 0;
-  for (let i = 0; i < newlyCollected.length; i += CHUNK_SIZE) {
-    const chunk = newlyCollected.slice(i, i + CHUNK_SIZE);
-    process.stdout.write(`💾 Saving new batch [${i + 1} - ${i + chunk.length}] to Supabase... `);
+  for (let i = 0; i < uniqueRecords.length; i += CHUNK_SIZE) {
+    const chunk = uniqueRecords.slice(i, i + CHUNK_SIZE);
+    process.stdout.write(`💾 Upserting batch [${i + 1} - ${i + chunk.length}] to Supabase... `);
     const { error } = await supabase.from('media_catalog').upsert(chunk, { onConflict: 'id' });
     if (!error) {
       savedCount += chunk.length;
@@ -362,10 +407,10 @@ async function runDeduplicatedIngestion() {
     }
   }
 
-  console.log(`\n🎉 Ingestion Finished! Successfully added ${savedCount} fresh titles.`);
+  console.log(`\n🎉 Ingestion Finished! Successfully wrote/healed ${savedCount} series.`);
 }
 
-runDeduplicatedIngestion().catch((err) => {
+runSelfHealingIngestion().catch((err) => {
   console.error('[Fatal Ingestion Failure]', err);
   process.exit(1);
 });
