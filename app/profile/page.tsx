@@ -43,9 +43,9 @@ function makeAvatarSvg(bgGradient: string, accentColor: string, eyeGlow: string,
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-// 20 Unique Illustrated Characters Across Anime, Manhwa, Manhua, and Novels
-export const HERO_AVATARS = [
-  // 1. Sung Jin-woo (Solo Leveling) - Shadow Monarch Glowing Blue Eyes & Dark Hair
+// 20 Unique Illustrated Characters Across Anime, Manhwa, Manhua, and Novels (internal constant, not exported)
+const HERO_AVATARS = [
+  // 1. Sung Jin-woo (Solo Leveling)
   {
     name: 'Sung Jin-woo',
     series: 'Solo Leveling',
@@ -53,7 +53,7 @@ export const HERO_AVATARS = [
       '<path d="M 28 35 Q 38 10 65 14 Q 74 22 72 42 Q 62 25 48 24 Q 35 25 28 35 Z" fill="#0f172a"/>', 
       '<path d="M 38 48 Q 42 54 44 48" stroke="#3b82f6" stroke-width="1" fill="none"/>')
   },
-  // 2. Gojo Satoru (Jujutsu Kaisen) - White Spiky Hair & Blindfold
+  // 2. Gojo Satoru (Jujutsu Kaisen)
   {
     name: 'Gojo Satoru',
     series: 'JJK',
@@ -61,7 +61,7 @@ export const HERO_AVATARS = [
       '<path d="M 24 35 Q 32 6 52 8 Q 72 6 78 35 Q 68 18 50 18 Q 32 18 24 35 Z" fill="#f8fafc"/>',
       '<rect x="30" y="42" width="40" height="10" rx="3" fill="#09090b"/><circle cx="42" cy="47" r="1.5" fill="#38bdf8" filter="url(#glow)"/><circle cx="58" cy="47" r="1.5" fill="#38bdf8" filter="url(#glow)"/>')
   },
-  // 3. Monkey D. Luffy (One Piece) - Straw Hat & Red Band
+  // 3. Monkey D. Luffy (One Piece)
   {
     name: 'Monkey D. Luffy',
     series: 'One Piece',
@@ -69,7 +69,7 @@ export const HERO_AVATARS = [
       '<path d="M 28 36 Q 50 18 72 36 Z" fill="#18181b"/>',
       '<ellipse cx="50" cy="22" rx="36" ry="10" fill="#eab308"/><ellipse cx="50" cy="20" rx="20" ry="8" fill="#ca8a04"/><path d="M 30 22 Q 50 24 70 22" stroke="#dc2626" stroke-width="3" fill="none"/>')
   },
-  // 4. Ichigo Kurosaki (Bleach) - Vibrant Orange Spiky Hair
+  // 4. Ichigo Kurosaki (Bleach)
   {
     name: 'Ichigo Kurosaki',
     series: 'Bleach',
@@ -77,7 +77,7 @@ export const HERO_AVATARS = [
       '<path d="M 22 35 Q 30 8 50 6 Q 70 8 78 35 Q 64 16 50 18 Q 36 16 22 35 Z" fill="#f97316"/>',
       '<path d="M 34 32 L 38 42 M 66 32 L 62 42" stroke="#ea580c" stroke-width="2"/>')
   },
-  // 5. Frieren (Frieren: Beyond Journey) - Silver Twin Tails & Emerald Eyes
+  // 5. Frieren (Frieren: Beyond Journey)
   {
     name: 'Frieren',
     series: 'Frieren',
@@ -85,7 +85,7 @@ export const HERO_AVATARS = [
       '<path d="M 26 36 Q 50 14 74 36 Q 85 62 82 85 Q 74 52 70 42 Q 30 42 26 85 Z" fill="#e2e8f0"/>',
       '<polygon points="48,58 50,56 52,58 50,60" fill="#ec4899"/>')
   },
-  // 6. Kim Dokja (Omniscient Reader) - Pure White Coat & Soul Constellation
+  // 6. Kim Dokja (Omniscient Reader)
   {
     name: 'Kim Dokja',
     series: 'ORV',
@@ -93,7 +93,7 @@ export const HERO_AVATARS = [
       '<path d="M 26 36 Q 48 16 74 36 Q 66 22 50 22 Q 34 22 26 36 Z" fill="#020617"/>',
       '<circle cx="50" cy="16" r="3" fill="#38bdf8" filter="url(#glow)"/>')
   },
-  // 7. Lloyd Frontera (Greatest Estate Dev) - Dark Hair & Scheming Smirk
+  // 7. Lloyd Frontera (Greatest Estate Dev)
   {
     name: 'Lloyd Frontera',
     series: 'Estate Dev',
@@ -101,7 +101,7 @@ export const HERO_AVATARS = [
       '<path d="M 26 36 Q 50 16 74 36 Q 66 22 50 22 Z" fill="#292524"/>',
       '<path d="M 40 58 Q 50 68 62 58" stroke="#713f12" stroke-width="2.5" fill="#fef08a"/>')
   },
-  // 8. Arthur Leywin (TBATE) - Golden Hair & Aether Purple Eyes
+  // 8. Arthur Leywin (TBATE)
   {
     name: 'Arthur Leywin',
     series: 'TBATE',
@@ -109,7 +109,7 @@ export const HERO_AVATARS = [
       '<path d="M 24 36 Q 50 12 76 36 Q 66 18 50 18 Q 34 18 24 36 Z" fill="#fde047"/>',
       '<path d="M 44 46 A 2 2 0 0 1 44 47 M 60 46 A 2 2 0 0 1 60 47" stroke="#9333ea" stroke-width="1.5"/>')
   },
-  // 9. Klein Moretti (Lord of Mysteries) - Victorian Top Hat & Amber Eyes
+  // 9. Klein Moretti (Lord of Mysteries)
   {
     name: 'Klein Moretti',
     series: 'LOTM',
@@ -117,7 +117,7 @@ export const HERO_AVATARS = [
       '<path d="M 26 38 Q 50 20 74 38 Z" fill="#1c1917"/>',
       '<rect x="36" y="8" width="28" height="24" rx="2" fill="#09090b"/><ellipse cx="50" cy="32" rx="26" ry="6" fill="#18181b"/><rect x="36" y="27" width="28" height="4" fill="#b91c1c"/>')
   },
-  // 10. Sunny (Shadow Slave) - Shadowy Hair & Onyx Eyes
+  // 10. Sunny (Shadow Slave)
   {
     name: 'Sunny',
     series: 'Shadow Slave',
@@ -125,7 +125,7 @@ export const HERO_AVATARS = [
       '<path d="M 24 34 Q 46 8 74 34 Q 62 20 48 20 Q 32 20 24 34 Z" fill="#020617"/>',
       '<circle cx="50" cy="50" r="1.5" fill="#38bdf8" opacity="0.6"/>')
   },
-  // 11. Ainz Ooal Gown (Overlord) - Golden Royal Crown & Crimson Orbs
+  // 11. Ainz Ooal Gown (Overlord)
   {
     name: 'Ainz Ooal Gown',
     series: 'Overlord',
@@ -133,7 +133,7 @@ export const HERO_AVATARS = [
       '<rect x="34" y="32" width="32" height="36" rx="10" fill="#f8fafc"/>',
       '<circle cx="43" cy="46" r="3" fill="#dc2626" filter="url(#glow)"/><circle cx="57" cy="46" r="3" fill="#dc2626" filter="url(#glow)"/><polygon points="34,26 42,12 50,22 58,12 66,26" fill="#eab308"/>')
   },
-  // 12. Cale Henituse (Trash of Counts) - Crimson Red Hair
+  // 12. Cale Henituse (Trash of Counts)
   {
     name: 'Cale Henituse',
     series: 'Trash of Counts',
@@ -141,7 +141,7 @@ export const HERO_AVATARS = [
       '<path d="M 24 36 Q 50 14 76 36 Q 64 18 50 18 Q 36 18 24 36 Z" fill="#dc2626"/>',
       '<circle cx="68" cy="72" r="3" fill="#ca8a04"/>')
   },
-  // 13. Zorian Kazinski (Mother of Learning) - Deep Blue Mage Crest
+  // 13. Zorian Kazinski (Mother of Learning)
   {
     name: 'Zorian Kazinski',
     series: 'Mother of Learning',
@@ -149,7 +149,7 @@ export const HERO_AVATARS = [
       '<path d="M 26 36 Q 50 18 74 36 Z" fill="#1e293b"/>',
       '<circle cx="50" cy="30" r="4" fill="none" stroke="#38bdf8" stroke-width="1.5"/>')
   },
-  // 14. Chung Myung (Return of Mount Hua) - Plum Blossom Petals
+  // 14. Chung Myung (Return of Mount Hua)
   {
     name: 'Chung Myung',
     series: 'Mount Hua',
@@ -157,7 +157,7 @@ export const HERO_AVATARS = [
       '<path d="M 26 36 Q 50 14 74 36 Z" fill="#1c1917"/>',
       '<circle cx="50" cy="24" r="3" fill="#f43f5e"/><ellipse cx="50" cy="20" rx="1.5" ry="3" fill="#fbcfe8"/><ellipse cx="50" cy="28" rx="1.5" ry="3" fill="#fbcfe8"/>')
   },
-  // 15. Daniel Park (Lookism) - Clean Crew Cut & Confident Eyes
+  // 15. Daniel Park (Lookism)
   {
     name: 'Daniel Park',
     series: 'Lookism',
@@ -165,7 +165,7 @@ export const HERO_AVATARS = [
       '<path d="M 28 35 Q 50 18 72 35 Z" fill="#09090b"/>',
       '<path d="M 40 40 L 46 41 M 60 41 L 54 40" stroke="#18181b" stroke-width="2"/>')
   },
-  // 16. Luo Zheng (Apostle of Gods) - Draconic Golden Aura
+  // 16. Luo Zheng (Apostle of Gods)
   {
     name: 'Luo Zheng',
     series: 'Apostle of Gods',
@@ -173,7 +173,7 @@ export const HERO_AVATARS = [
       '<path d="M 24 36 Q 50 10 76 36 Z" fill="#292524"/>',
       '<polygon points="50,20 53,26 60,27 55,32 56,38 50,35 44,38 45,32 40,27 47,26" fill="#fbbf24"/>')
   },
-  // 17. Nie Li (Tales of Demons) - Demon Spirit Tiger Stripes
+  // 17. Nie Li (Tales of Demons)
   {
     name: 'Nie Li',
     series: 'Tales of Demons',
@@ -181,7 +181,7 @@ export const HERO_AVATARS = [
       '<path d="M 24 36 Q 50 12 76 36 Z" fill="#ca8a04"/>',
       '<path d="M 32 46 L 36 48 M 68 46 L 64 48" stroke="#15803d" stroke-width="2"/>')
   },
-  // 18. Fang Yuan (Reverend Insanity) - Spring Autumn Cicada Jade Glow
+  // 18. Fang Yuan (Reverend Insanity)
   {
     name: 'Fang Yuan',
     series: 'Reverend Insanity',
@@ -189,7 +189,7 @@ export const HERO_AVATARS = [
       '<path d="M 26 36 Q 50 16 74 36 Z" fill="#0f172a"/>',
       '<circle cx="50" cy="22" r="3.5" fill="#10b981" filter="url(#glow)"/>')
   },
-  // 19. Xiao Yan (Battle Through Heavens) - Heavenly Lotus Flame
+  // 19. Xiao Yan (Battle Through Heavens)
   {
     name: 'Xiao Yan',
     series: 'Battle Through',
@@ -197,7 +197,7 @@ export const HERO_AVATARS = [
       '<path d="M 26 36 Q 50 14 74 36 Z" fill="#1c1917"/>',
       '<path d="M 50 14 Q 54 22 50 28 Q 46 22 50 14 Z" fill="#38bdf8" filter="url(#glow)"/>')
   },
-  // 20. Tang San (Soul Land) - Blue Silver Grass & Hammer
+  // 20. Tang San (Soul Land)
   {
     name: 'Tang San',
     series: 'Soul Land',
