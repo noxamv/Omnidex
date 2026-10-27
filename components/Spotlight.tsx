@@ -28,23 +28,21 @@ export default function Spotlight({
 
   return (
     <div className="relative w-full rounded-3xl overflow-hidden bg-[#0c101a] border border-white/[0.08] shadow-2xl p-4 min-h-[185px] sm:min-h-[205px] flex flex-col justify-between group">
-      {/* Background Poster Blur */}
+      {/* Background Poster Blur with no-referrer */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <img
           src={item.banner_url || item.cover_url}
           alt=""
+          referrerPolicy="no-referrer"
           className="w-full h-full object-cover filter blur-2xl opacity-20 scale-125 transition-all duration-700"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-[#0c101a] via-[#0c101a]/90 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0c101a] via-transparent to-transparent" />
       </div>
 
-      {/* Main Content Layout */}
       <div className="relative z-10 flex items-stretch justify-between gap-4 flex-1">
-        {/* Left Information Column */}
         <div className="flex-1 min-w-0 flex flex-col justify-between">
           <div className="space-y-1.5">
-            {/* Badges */}
             <div className="flex items-center gap-1.5">
               <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
                 SPOTLIGHT #{index + 1}
@@ -59,7 +57,6 @@ export default function Spotlight({
               )}
             </div>
 
-            {/* Primary & Secondary Title */}
             <div>
               <Link href={`/series/${item.id}`} className="block">
                 <h1 className="text-base sm:text-lg font-black text-white hover:text-indigo-400 transition truncate leading-tight">
@@ -73,13 +70,11 @@ export default function Spotlight({
               )}
             </div>
 
-            {/* Expanded Synopsis Breathing Room */}
             <p className="text-xs text-zinc-400 line-clamp-3 leading-relaxed max-w-lg font-normal">
               {item.synopsis || 'Explore official global release dates, reading milestones, and verified publisher licenses.'}
             </p>
           </div>
 
-          {/* Compact Button Anchored to Bottom-Left */}
           <div className="pt-2">
             <Link
               href={`/series/${item.id}`}
@@ -91,7 +86,7 @@ export default function Spotlight({
           </div>
         </div>
 
-        {/* Right Poster */}
+        {/* Poster with no-referrer */}
         <Link
           href={`/series/${item.id}`}
           className="w-24 sm:w-28 aspect-[2/3] flex-shrink-0 rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-zinc-900 group-hover:scale-105 transition duration-300 self-center"
@@ -99,12 +94,12 @@ export default function Spotlight({
           <img
             src={item.cover_url || '/placeholder.svg'}
             alt={item.title_primary}
+            referrerPolicy="no-referrer"
             className="w-full h-full object-cover"
           />
         </Link>
       </div>
 
-      {/* MangaFlow Style Centered Minimal Indicator Dots */}
       {onSelectIndex && (
         <div className="relative z-10 flex items-center justify-center gap-1.5 pt-2">
           {Array.from({ length: total }).map((_, idx) => (
