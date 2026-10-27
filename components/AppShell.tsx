@@ -8,8 +8,7 @@ import OmnidexLogo from './OmnidexLogo';
 import { 
   Menu, Search, X, LogOut, 
   Bookmark, SlidersHorizontal, RefreshCw, 
-  FileDown, Smartphone, Star, 
-  Bell, ChevronRight, User, Settings,
+  Smartphone, Star, Bell, ChevronRight, User, Settings,
   Flame, Clock, Shuffle, Home, Check
 } from 'lucide-react';
 
@@ -24,7 +23,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // User & Avatar State
   const [user, setUser] = useState<any>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string>('');
+  const [avatarUrl, setAvatarUrl] = useState<string>('https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=160&h=160&fit=crop');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isPasswordLogin, setIsPasswordLogin] = useState(false);
@@ -32,7 +31,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [authError, setAuthError] = useState('');
   const [magicLinkSent, setMagicLinkSent] = useState(false);
 
-  // Live ⌘K Search State
+  // Live Top Search State
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -42,13 +41,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
 
-  // Notifications State
-  const [unreadNotifs, setUnreadNotifs] = useState<any[]>([
-    { id: 1, title: 'Solo Leveling: Ragnarok', desc: 'Chapter 28 dropped today', time: '2h ago', unread: true },
-    { id: 2, title: 'Lord of the Mysteries', desc: 'New volume batch updated', time: '1d ago', unread: true }
-  ]);
+  // MangaFire Style Persistent Notification Alerts
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [allCaughtUp, setAllCaughtUp] = useState(false);
 
-  // Load avatar and live catalog count
   useEffect(() => {
     supabase
       .from('media_catalog')
@@ -57,12 +53,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         if (count) setTotalCatalogCount(count);
       });
 
-    // Load local avatar cache
     const savedAvatar = localStorage.getItem('omnidex_user_avatar');
     if (savedAvatar) setAvatarUrl(savedAvatar);
+
+    const caughtUpStored = localStorage.getItem('omnidex_notifs_caught_up');
+    if (caughtUpStored === 'true') {
+      setAllCaughtUp(true);
+    }
   }, []);
 
-  // Listen for custom avatar update event from profile page
+  // Sync avatar updates in real-time
   useEffect(() => {
     const handleAvatarUpdate = (e: any) => {
       if (e.detail?.url) setAvatarUrl(e.detail.url);
@@ -71,7 +71,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('omnidex_avatar_changed', handleAvatarUpdate);
   }, []);
 
-  // Keyboard shortcut ⌘K
+  // Keyboard shortcut (⌘K or Ctrl+K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -100,7 +100,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Auth State Listener
+  // Supabase Auth Listener
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -125,6 +125,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     } catch {}
   }
 
+  // Focus search input on open
   useEffect(() => {
     if (searchOpen) {
       setTimeout(() => searchInputRef.current?.focus(), 50);
@@ -134,6 +135,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [searchOpen]);
 
+  // Live Trigram/Fuzzy Search Query
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -141,14 +143,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
     const timer = setTimeout(async () => {
       setSearchLoading(true);
+      const cleanTerm = searchQuery.trim();
+
+      // Search using ilike + fuzzy match
       const { data } = await supabase
         .from('media_catalog')
-        .select('id, title_primary, title_secondary, cover_url, media_type, status, score')
-        .ilike('title_primary', `%${searchQuery.trim()}%`)
+        .select('id, title_primary, title_secondary, cover_url, media_type, status, score, total_units')
+        .ilike('title_primary', `%${cleanTerm}%`)
+        .order('score', { ascending: false, nullsFirst: false })
         .limit(8);
+
       setSearchResults(data || []);
       setSearchLoading(false);
-    }, 180);
+    }, 150);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
@@ -186,14 +193,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const markAllNotifsRead = () => {
-    setUnreadNotifs((prev) => prev.map((n) => ({ ...n, unread: false })));
+  // MangaFire Mark as Read: permanently stores in profile & localStorage
+  const handleMarkAllRead = async () => {
+    setAllCaughtUp(true);
+    localStorage.setItem('omnidex_notifs_caught_up', 'true');
+    if (user?.id) {
+      await supabase
+        .from('profiles')
+        .update({ last_read_notif_at: new Date().toISOString() })
+        .eq('id', user.id);
+    }
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#06080d] text-zinc-100">
-      {/* Top Fixed Header */}
-      <header className="sticky top-0 z-40 w-full bg-[#06080d]/85 backdrop-blur-xl border-b border-white/[0.06]">
+      {/* Top Navbar */}
+      <header className="sticky top-0 z-40 w-full bg-[#06080d]/90 backdrop-blur-xl border-b border-white/[0.06]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
           
           {/* FAR LEFT: Menu Toggle + Omnidex Logo */}
@@ -203,6 +218,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 setNavMenuOpen((prev) => !prev);
                 setUserMenuOpen(false);
                 setNotifPopoverOpen(false);
+                setSearchOpen(false);
               }}
               className="p-2 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 text-zinc-300 hover:text-white transition"
               title="Browse Catalog"
@@ -219,11 +235,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
 
-          {/* FAR RIGHT: Search, Notifications & Avatar */}
+          {/* FAR RIGHT: Search Icon, Notifications & User Avatar */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-zinc-900/80 hover:bg-zinc-800/80 border border-white/10 text-zinc-400 hover:text-zinc-200 transition text-xs font-medium"
+              onClick={() => {
+                setSearchOpen((prev) => !prev);
+                setNavMenuOpen(false);
+                setUserMenuOpen(false);
+                setNotifPopoverOpen(false);
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900/80 hover:bg-zinc-800/80 border border-white/10 text-zinc-400 hover:text-zinc-200 transition text-xs font-medium"
             >
               <Search className="w-3.5 h-3.5 text-zinc-400" />
               <span className="hidden sm:inline">Search...</span>
@@ -232,31 +253,33 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </kbd>
             </button>
 
-            {/* Notification Bell with Badge */}
+            {/* Notification Bell */}
             <div className="relative">
               <button
                 onClick={() => {
                   setNotifPopoverOpen((prev) => !prev);
                   setNavMenuOpen(false);
                   setUserMenuOpen(false);
+                  setSearchOpen(false);
                 }}
                 className="p-2 rounded-xl bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 text-zinc-400 hover:text-white transition relative"
                 title="Notifications"
               >
                 <Bell className="w-4 h-4" />
-                {unreadNotifs.some((n) => n.unread) && (
+                {!allCaughtUp && (
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-[#06080d]" />
                 )}
               </button>
             </div>
 
-            {/* User Avatar Badge with Live Custom Image */}
+            {/* User Avatar Badge */}
             {user ? (
               <button
                 onClick={() => {
                   setUserMenuOpen((prev) => !prev);
                   setNavMenuOpen(false);
                   setNotifPopoverOpen(false);
+                  setSearchOpen(false);
                 }}
                 className="w-8 h-8 rounded-xl overflow-hidden border border-indigo-500/40 hover:border-indigo-400 transition flex items-center justify-center bg-zinc-900"
                 title="Account Menu"
@@ -279,6 +302,89 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             )}
           </div>
         </div>
+
+        {/* ========================================================================= */}
+        {/* MANGAFIRE SLIDE-DOWN SEARCH BAR (No Black Dim Overlay)                    */}
+        {/* ========================================================================= */}
+        {searchOpen && (
+          <div className="absolute top-14 left-0 w-full bg-[#0c101a]/95 backdrop-blur-2xl border-b border-white/10 shadow-2xl z-50 animate-in slide-in-from-top-2 duration-200">
+            <div className="max-w-3xl mx-auto px-4 py-3 relative">
+              <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-zinc-950 border border-white/10">
+                <Search className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={totalCatalogCount ? `Search across ${totalCatalogCount.toLocaleString()} series...` : 'Search titles across manga, manhwa, anime & novels...'}
+                  className="w-full bg-transparent text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none"
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery('')} className="p-1 text-zinc-400 hover:text-white">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button
+                  onClick={() => setSearchOpen(false)}
+                  className="px-2 py-0.5 rounded-lg bg-zinc-800 text-[11px] font-bold text-zinc-400 hover:text-white border border-white/5"
+                >
+                  Close
+                </button>
+              </div>
+
+              {/* ATTACHED MANGAFIRE RESULTS FLYOUT */}
+              {searchQuery.trim() && (
+                <div className="mt-2 rounded-2xl bg-zinc-950/95 border border-white/10 shadow-2xl overflow-hidden max-h-96 overflow-y-auto p-2">
+                  <div className="px-2 py-1 text-[10px] font-black uppercase tracking-wider text-zinc-500 border-b border-white/5 mb-1">
+                    RESULTS
+                  </div>
+
+                  {searchLoading && (
+                    <div className="py-6 text-center text-xs text-zinc-500">Searching catalog...</div>
+                  )}
+
+                  {!searchLoading && searchResults.length === 0 && (
+                    <div className="py-6 text-center text-xs text-zinc-500">
+                      No results found for "{searchQuery}".
+                    </div>
+                  )}
+
+                  {searchResults.map((item) => (
+                    <Link
+                      key={item.id}
+                      href={`/series/${item.id}`}
+                      onClick={() => setSearchOpen(false)}
+                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition group"
+                    >
+                      <img
+                        src={item.cover_url || '/placeholder.svg'}
+                        alt=""
+                        className="w-9 h-12 object-cover rounded-lg bg-zinc-900 border border-white/5 flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-xs font-bold text-zinc-200 group-hover:text-indigo-400 truncate">
+                          {item.title_primary}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-zinc-400 font-semibold uppercase">
+                          <span className="text-indigo-400">{item.media_type}</span>
+                          <span>•</span>
+                          <span>{item.status}</span>
+                          {item.score && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-0.5 text-amber-400">
+                                <Star className="w-2.5 h-2.5 fill-amber-400" /> {item.score}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
       {/* TOP-LEFT: Browse Catalog Floating Popover (w-[230px], tightly padded) */}
@@ -327,7 +433,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </Link>
 
-              {/* Clean 'Filter' label removing unnecessary text */}
               <Link
                 href="/filter"
                 onClick={() => setNavMenuOpen(false)}
@@ -379,7 +484,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* TOP-RIGHT: User Account Popover (w-[230px], no dead right padding) */}
+      {/* TOP-RIGHT: User Account Popover (w-[230px], tightly padded) */}
       {userMenuOpen && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-transparent" onClick={() => setUserMenuOpen(false)} />
@@ -460,165 +565,44 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* NOTIFICATION BELL POPOVER */}
+      {/* MANGAFIRE NOTIFICATIONS POPOVER (Persistent "All Caught Up") */}
       {notifPopoverOpen && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-transparent" onClick={() => setNotifPopoverOpen(false)} />
           <div className="absolute top-14 right-14 sm:right-20 w-72 rounded-2xl bg-[#0e121b]/95 backdrop-blur-xl border border-white/10 shadow-2xl p-3 z-10 space-y-2 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-white/10 pb-2">
-              <span className="text-xs font-black text-white">Release Alerts</span>
-              <button
-                onClick={markAllNotifsRead}
-                className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
-              >
-                <Check className="w-3 h-3" /> Mark as read
-              </button>
+              <span className="text-xs font-black text-white">Notifications</span>
+              {!allCaughtUp && (
+                <button
+                  onClick={handleMarkAllRead}
+                  className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                >
+                  <Check className="w-3 h-3" /> Mark as read
+                </button>
+              )}
             </div>
 
-            <div className="space-y-1.5 max-h-48 overflow-y-auto">
-              {unreadNotifs.map((n) => (
-                <div key={n.id} className={`p-2 rounded-xl border text-xs transition ${n.unread ? 'bg-indigo-500/10 border-indigo-500/20 text-white' : 'bg-zinc-900 border-white/5 text-zinc-400'}`}>
-                  <p className="font-bold truncate">{n.title}</p>
-                  <p className="text-[10px] text-zinc-400">{n.desc} • {n.time}</p>
+            {allCaughtUp ? (
+              <div className="py-6 text-center space-y-1">
+                <p className="text-xs font-bold text-zinc-300">You're all caught up.</p>
+                <p className="text-[10px] text-zinc-500">No unread chapter releases.</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs">
+                  <p className="font-bold text-zinc-200">New Chapter Updates</p>
+                  <p className="text-[10px] text-zinc-400">Chapters dropped for your followed library titles.</p>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
 
             <Link
               href="/notifications"
               onClick={() => setNotifPopoverOpen(false)}
               className="block w-full py-1.5 text-center rounded-xl bg-zinc-900 hover:bg-zinc-800 text-[11px] font-bold text-zinc-300 transition"
             >
-              See all notifications →
+              View all notifications →
             </Link>
-          </div>
-        </div>
-      )}
-
-      {/* LIVE ⌘K SEARCH DIALOG */}
-      {searchOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 p-4">
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-md" onClick={() => setSearchOpen(false)} />
-          <div className="relative w-full max-w-xl bg-zinc-900 border border-white/15 rounded-2xl shadow-2xl overflow-hidden z-10 flex flex-col">
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
-              <Search className="w-4 h-4 text-zinc-400" />
-              <input
-                ref={searchInputRef}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={totalCatalogCount ? `Search across ${totalCatalogCount.toLocaleString()} verified series...` : 'Search titles across all categories...'}
-                className="w-full bg-transparent text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none"
-              />
-              <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-[10px] font-mono text-zinc-400 border border-white/10">
-                ESC
-              </kbd>
-            </div>
-
-            <div className="max-h-96 overflow-y-auto p-2 space-y-1">
-              {searchLoading && (
-                <div className="py-8 text-center text-xs text-zinc-500">Searching catalog...</div>
-              )}
-              {!searchLoading && searchResults.length === 0 && searchQuery.trim() && (
-                <div className="py-8 text-center text-xs text-zinc-500">No series match this query.</div>
-              )}
-              {searchResults.map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/series/${item.id}`}
-                  onClick={() => setSearchOpen(false)}
-                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition group"
-                >
-                  <img src={item.cover_url || '/placeholder.svg'} alt="" className="w-10 h-14 object-cover rounded-lg bg-zinc-800" />
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-xs font-bold text-zinc-200 group-hover:text-indigo-400 truncate">
-                      {item.title_primary}
-                    </h4>
-                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-zinc-400 uppercase font-bold">
-                      <span className="text-indigo-400">{item.media_type}</span>
-                      <span>•</span>
-                      <span>{item.status}</span>
-                      {item.score && (
-                        <>
-                          <span>•</span>
-                          <span className="flex items-center gap-0.5 text-amber-400">
-                            <Star className="w-2.5 h-2.5 fill-amber-400" /> {item.score}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* AUTH MODAL */}
-      {authOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setAuthOpen(false)} />
-          <div className="relative w-full max-w-sm bg-zinc-900 border border-white/10 rounded-2xl p-5 shadow-2xl z-10 space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="font-black text-sm text-white">Sign In to Omnidex</h3>
-              <button onClick={() => setAuthOpen(false)} className="text-zinc-400 hover:text-white">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {magicLinkSent ? (
-              <div className="py-6 text-center space-y-2">
-                <p className="text-sm font-bold text-emerald-400">Magic Link Dispatched!</p>
-                <p className="text-xs text-zinc-400">Check your inbox to authenticate instantly.</p>
-              </div>
-            ) : (
-              <form onSubmit={handleAuthSubmit} className="space-y-3 text-xs">
-                {authError && <div className="text-rose-400 font-bold">{authError}</div>}
-                <div>
-                  <label className="text-zinc-400 block mb-1 font-semibold">Email Address:</label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="reader@example.com"
-                    className="w-full bg-zinc-950 border border-white/10 rounded-xl p-2.5 text-zinc-100 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-
-                {isPasswordLogin && (
-                  <div>
-                    <label className="text-zinc-400 block mb-1 font-semibold">Password:</label>
-                    <input
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full bg-zinc-950 border border-white/10 rounded-xl p-2.5 text-zinc-100 focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={authLoading}
-                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 font-black text-white rounded-xl transition shadow-md shadow-indigo-600/30"
-                >
-                  {authLoading ? 'Verifying...' : isPasswordLogin ? 'Sign In' : 'Send Magic Link'}
-                </button>
-
-                <div className="text-center pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setIsPasswordLogin((prev) => !prev)}
-                    className="text-[11px] font-bold text-zinc-400 hover:text-indigo-400 transition"
-                  >
-                    {isPasswordLogin ? 'Switch to Passwordless Magic Link' : 'Switch to Email & Password'}
-                  </button>
-                </div>
-              </form>
-            )}
           </div>
         </div>
       )}
