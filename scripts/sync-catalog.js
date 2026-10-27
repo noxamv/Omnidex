@@ -90,7 +90,7 @@ async function fetchAniListPageWithRetry(variables, maxRetries = 3) {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'User-Agent': 'Omnidex-Legal-Media-Indexer/2.0',
+          'User-Agent': 'Omnidex-Legal-Media-Indexer/3.0',
         },
         body: JSON.stringify({ query: ANILIST_PAGE_QUERY, variables }),
         signal: controller.signal,
@@ -120,12 +120,25 @@ async function fetchAniListPageWithRetry(variables, maxRetries = 3) {
 }
 
 async function runGlobalIngestion() {
-  console.log('=== Omnidex High-Throughput Catalog Harvester Online ===');
+  console.log('=== Omnidex High-Throughput Catalog Harvester (Multi-Sort Mode) ===');
   console.log(`Timestamp: ${new Date().toISOString()}`);
+
+  // DYNAMIC SORT ROTATION:
+  // Rotates sort order every hour so the scraper continuously harvests NEW back-catalog series
+  const currentHour = new Date().getUTCHours();
+  const sortOptions = [
+    ['POPULARITY_DESC'],
+    ['TRENDING_DESC'],
+    ['UPDATED_AT_DESC'],
+    ['START_DATE_DESC'],
+    ['FAVOURITES_DESC']
+  ];
+  const activeSort = sortOptions[currentHour % sortOptions.length];
+  console.log(`🔄 Active Ingestion Sort Strategy: [${activeSort.join(', ')}]`);
 
   let collected = [];
 
-  // 1. Korean Manhwa (KR Origin)
+  // Stage 1: Korean Manhwa (KR Origin)
   console.log('\n📥 Stage 1: Ingesting Korean Manhwa (KR)...');
   for (let p = 1; p <= 25; p++) {
     process.stdout.write(`  -> Fetching Manhwa Page ${p}/25... `);
@@ -134,7 +147,7 @@ async function runGlobalIngestion() {
       perPage: 50,
       type: 'MANGA',
       countryOfOrigin: 'KR',
-      sort: ['POPULARITY_DESC'],
+      sort: activeSort,
     });
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
@@ -142,11 +155,10 @@ async function runGlobalIngestion() {
     await delay(1000);
   }
 
-  // 5.5-Second Cooldown: Drains AniList 60-second rolling request bucket
-  console.log('⏳ Cooldown 5.5s to reset AniList rate limit bucket...');
+  console.log('⏳ Cooldown 5.5s to drain AniList rolling rate limit bucket...');
   await delay(5500);
 
-  // 2. Chinese Manhua (CN Origin)
+  // Stage 2: Chinese Manhua (CN Origin)
   console.log('\n📥 Stage 2: Ingesting Chinese Manhua (CN)...');
   for (let p = 1; p <= 20; p++) {
     process.stdout.write(`  -> Fetching Manhua Page ${p}/20... `);
@@ -155,7 +167,7 @@ async function runGlobalIngestion() {
       perPage: 50,
       type: 'MANGA',
       countryOfOrigin: 'CN',
-      sort: ['POPULARITY_DESC'],
+      sort: activeSort,
     });
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
@@ -163,10 +175,10 @@ async function runGlobalIngestion() {
     await delay(1000);
   }
 
-  console.log('⏳ Cooldown 5.5s to reset AniList rate limit bucket...');
+  console.log('⏳ Cooldown 5.5s to drain AniList rolling rate limit bucket...');
   await delay(5500);
 
-  // 3. Japanese Manga (JP Origin)
+  // Stage 3: Japanese Manga (JP Origin)
   console.log('\n📥 Stage 3: Ingesting Japanese Manga (JP)...');
   for (let p = 1; p <= 25; p++) {
     process.stdout.write(`  -> Fetching Manga Page ${p}/25... `);
@@ -176,7 +188,7 @@ async function runGlobalIngestion() {
       type: 'MANGA',
       format: 'MANGA',
       countryOfOrigin: 'JP',
-      sort: ['POPULARITY_DESC'],
+      sort: activeSort,
     });
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
@@ -184,10 +196,10 @@ async function runGlobalIngestion() {
     await delay(1000);
   }
 
-  console.log('⏳ Cooldown 5.5s to reset AniList rate limit bucket...');
+  console.log('⏳ Cooldown 5.5s to drain AniList rolling rate limit bucket...');
   await delay(5500);
 
-  // 4. Light Novels & Web Novels
+  // Stage 4: Light Novels & Web Novels
   console.log('\n📥 Stage 4: Ingesting Novels...');
   for (let p = 1; p <= 20; p++) {
     process.stdout.write(`  -> Fetching Novels Page ${p}/20... `);
@@ -196,7 +208,7 @@ async function runGlobalIngestion() {
       perPage: 50,
       type: 'MANGA',
       format: 'NOVEL',
-      sort: ['POPULARITY_DESC'],
+      sort: activeSort,
     });
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
@@ -204,10 +216,10 @@ async function runGlobalIngestion() {
     await delay(1000);
   }
 
-  console.log('⏳ Cooldown 5.5s to reset AniList rate limit bucket...');
+  console.log('⏳ Cooldown 5.5s to drain AniList rolling rate limit bucket...');
   await delay(5500);
 
-  // 5. Anime Series & Simulcasts
+  // Stage 5: Anime Series & Simulcasts
   console.log('\n📥 Stage 5: Ingesting Anime Series...');
   for (let p = 1; p <= 25; p++) {
     process.stdout.write(`  -> Fetching Anime Page ${p}/25... `);
@@ -215,7 +227,7 @@ async function runGlobalIngestion() {
       page: p,
       perPage: 50,
       type: 'ANIME',
-      sort: ['POPULARITY_DESC'],
+      sort: activeSort,
     });
     console.log(`[+${pageItems.length} items]`);
     if (!pageItems.length) break;
