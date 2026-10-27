@@ -6,35 +6,33 @@ import Link from 'next/link';
 import { supabase } from '../lib/supabase';
 import Spotlight from '../components/Spotlight';
 import { 
-  Star, Bookmark, TrendingUp, Flame, Sparkles, 
-  BookOpen, ChevronRight, Check, Link2, Shuffle, Clock
+  Star, Bookmark, Flame, Sparkles, 
+  ChevronRight, Check, Link2, Shuffle, Clock
 } from 'lucide-react';
 
 const CATEGORY_TABS = [
   { label: 'All', value: 'all' },
-  { label: 'Manhwa (KR)', value: 'manhwa' },
-  { label: 'Manga (JP)', value: 'manga' },
-  { label: 'Manhua (CN)', value: 'manhua' },
   { label: 'Anime', value: 'anime' },
+  { label: 'Manga', value: 'manga' },
+  { label: 'Manhwa', value: 'manhwa' },
+  { label: 'Manhua', value: 'manhua' },
   { label: 'Novels', value: 'novel' },
 ];
 
 export default function HomePage() {
   const [catalog, setCatalog] = useState<any[]>([]);
   const [followingItems, setFollowingItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [spotlightIndex, setSpotlightIndex] = useState(0);
 
   const [trendingTab, setTrendingTab] = useState('all');
   const [popularTab, setPopularTab] = useState('all');
   const [latestTab, setLatestTab] = useState('all');
 
+  const [randomList, setRandomList] = useState<any[]>([]);
   const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     async function loadData() {
-      setLoading(true);
-
       const { data } = await supabase
         .from('media_catalog')
         .select('*')
@@ -44,6 +42,17 @@ export default function HomePage() {
       const items = data || [];
       setCatalog(items);
 
+      // Stable Random Picks: Cached in sessionStorage so it doesn't shuffle on every scroll/rerender
+      const cachedRandom = sessionStorage.getItem('omnidex_random_pool');
+      if (cachedRandom) {
+        setRandomList(JSON.parse(cachedRandom));
+      } else if (items.length > 0) {
+        const shuffled = [...items].sort(() => 0.5 - Math.random()).slice(0, 15);
+        setRandomList(shuffled);
+        sessionStorage.setItem('omnidex_random_pool', JSON.stringify(shuffled));
+      }
+
+      // Check for user/guest followed titles
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const { data: trackData } = await supabase
@@ -82,7 +91,6 @@ export default function HomePage() {
           }
         } catch {}
       }
-      setLoading(false);
     }
     loadData();
   }, []);
@@ -95,7 +103,6 @@ export default function HomePage() {
     }
   };
 
-  // Filter across the full catalog, not just the first 50
   const filterList = (list: any[], tab: string) => {
     if (tab === 'all') return list.slice(0, 20);
     return list.filter((item) => item.media_type === tab).slice(0, 20);
@@ -104,11 +111,10 @@ export default function HomePage() {
   const trendingList = filterList(catalog, trendingTab);
   const popularList = filterList([...catalog].sort((a, b) => (b.score || 0) - (a.score || 0)), popularTab);
   const latestList = filterList([...catalog].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()), latestTab);
-  const randomList = [...catalog].sort(() => 0.5 - Math.random()).slice(0, 15);
 
-  // Filter out any titles with broken or placeholder covers from the Spotlight
+  // Filter out titles with broken or gradient stock covers from the Spotlight
   const spotlightPool = catalog
-    .filter((i) => i.cover_url && !i.cover_url.includes('placeholder'))
+    .filter((i) => i.cover_url && !i.cover_url.includes('placeholder') && !i.cover_url.includes('unsplash'))
     .slice(0, 7);
   const activeSpotlight = spotlightPool[spotlightIndex] || catalog[0] || null;
 
@@ -124,11 +130,10 @@ export default function HomePage() {
         />
       )}
 
-      {/* 2. MangaFlow Social Share Strip */}
+      {/* 2. Vector SVG Social Share Bar */}
       <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-zinc-900/60 border border-white/[0.06] backdrop-blur-md">
         <span className="text-xs font-bold text-zinc-400 pl-1 whitespace-nowrap">Share Omnidex:</span>
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-          {/* X */}
           <a
             href="https://twitter.com/intent/tweet?text=Track%20all%20manga,%20manhwa,%20anime%20and%20novels%20legally%20on%20Omnidex!&url=https://omnidex.vercel.app"
             target="_blank"
@@ -141,7 +146,6 @@ export default function HomePage() {
             </svg>
           </a>
 
-          {/* Facebook */}
           <a
             href="https://www.facebook.com/sharer/sharer.php?u=https://omnidex.vercel.app"
             target="_blank"
@@ -154,7 +158,6 @@ export default function HomePage() {
             </svg>
           </a>
 
-          {/* WhatsApp */}
           <a
             href="https://api.whatsapp.com/send?text=Track%20all%20manga,%20manhwa,%20anime%20and%20novels%20on%20Omnidex:%20https://omnidex.vercel.app"
             target="_blank"
@@ -167,7 +170,6 @@ export default function HomePage() {
             </svg>
           </a>
 
-          {/* Reddit */}
           <a
             href="https://www.reddit.com/submit?url=https://omnidex.vercel.app&title=Omnidex%20Official%20Media%20Tracker"
             target="_blank"
@@ -180,7 +182,6 @@ export default function HomePage() {
             </svg>
           </a>
 
-          {/* Telegram */}
           <a
             href="https://t.me/share/url?url=https://omnidex.vercel.app&text=Track%20your%20series%20on%20Omnidex"
             target="_blank"
@@ -193,7 +194,6 @@ export default function HomePage() {
             </svg>
           </a>
 
-          {/* Clean Square Icon for Copy (No truncated 'Cc' text) */}
           <button
             onClick={handleCopyLink}
             className="w-8 h-8 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white flex items-center justify-center transition p-2"
@@ -204,7 +204,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 3. Continue Reading / Active Tracking Shelf */}
+      {/* 3. Continue Reading / Active Shelf */}
       {followingItems.length > 0 && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
@@ -215,7 +215,7 @@ export default function HomePage() {
               </h2>
             </div>
             <Link href="/library" className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
-              <span>View Library</span>
+              <span>View All</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -246,7 +246,7 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* 4. Trending Series (All-in-One with Format Sub-Bar) */}
+      {/* 4. Trending Series (Standardized Sub-Tabs) */}
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -295,11 +295,6 @@ export default function HomePage() {
                     <Star className="w-2.5 h-2.5 fill-amber-400" /> {item.score}
                   </span>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
-                  <span className="text-[10px] font-black uppercase text-zinc-300">
-                    {item.format || item.media_type}
-                  </span>
-                </div>
               </div>
 
               <div>
@@ -317,7 +312,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 5. Popular Series (Ranked by Score, with Sub-Bar) */}
+      {/* 5. Popular Series */}
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -431,7 +426,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 7. Random Recommendations Shelf */}
+      {/* 7. Frozen Random Picks (Does not shift rapidly on scroll) */}
       {randomList.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
