@@ -25,4 +25,3 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   } catch (e) { console.warn('sitemap query failed', e); }
   return [...pages, ...series];
 }
-.
