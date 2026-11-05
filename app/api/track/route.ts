@@ -3,44 +3,13 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 const ALLOWED_PLATFORMS = [
-  // Web Novels & Light Novels
-  'royalroad.com',
-  'webnovel.com',
-  'wattpad.com',
-  'scribblehub.com',
-  'j-novel.club',
-  'yenpress.com',
-  'bookwalker.jp',
-  'global.bookwalker.jp',
-  'kobo.com',
-  'amazon.com',
-
-  // Manhwa & Webtoons
-  'webtoons.com',
-  'tapas.io',
-  'tappytoon.com',
-  'lezhinus.com',
-  'toomics.com',
-  'pocketcomics.com',
-
-  // Manga & Manhua
-  'mangaplus.shueisha.co.jp',
-  'viz.com',
-  'kodansha.us',
-  'comikey.com',
-  'kmanga.kodansha.net',
-  'inkr.com',
-  'bilibilicomics.com',
-  'bilibili.tv',
-
-  // Anime Streaming
-  'crunchyroll.com',
-  'netflix.com',
-  'hidive.com',
-  'disneyplus.com',
-  'hulu.com',
-  'primevideo.com',
-  'youtube.com'
+  'royalroad.com', 'webnovel.com', 'wattpad.com', 'scribblehub.com', 'j-novel.club',
+  'yenpress.com', 'bookwalker.jp', 'global.bookwalker.jp', 'kobo.com', 'amazon.com',
+  'webtoons.com', 'tapas.io', 'tappytoon.com', 'lezhinus.com', 'toomics.com', 'pocketcomics.com',
+  'mangaplus.shueisha.co.jp', 'viz.com', 'kodansha.us', 'comikey.com', 'kmanga.kodansha.net',
+  'inkr.com', 'bilibilicomics.com', 'bilibili.tv',
+  'crunchyroll.com', 'netflix.com', 'hidive.com', 'disneyplus.com', 'hulu.com',
+  'primevideo.com', 'youtube.com',
 ];
 
 function isSafeUrl(urlStr: string): boolean {
@@ -48,7 +17,7 @@ function isSafeUrl(urlStr: string): boolean {
     const parsed = new URL(urlStr);
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
     return ALLOWED_PLATFORMS.some(
-      (domain) => parsed.hostname === domain || parsed.hostname.endsWith(`.${domain}`)
+      (d) => parsed.hostname === d || parsed.hostname.endsWith(`.${d}`)
     );
   } catch {
     return false;
@@ -57,9 +26,9 @@ function isSafeUrl(urlStr: string): boolean {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const mediaId = searchParams.get('mediaId');
+  const mediaId = (searchParams.get('mediaId') || '').slice(0, 80);
   const targetUrl = searchParams.get('target');
-  const progressStep = parseInt(searchParams.get('step') || '1', 10);
+  const progressStep = Math.min(parseInt(searchParams.get('step') || '1', 10) || 1, 100000);
 
   if (!targetUrl || !isSafeUrl(targetUrl)) {
     return NextResponse.redirect(new URL('/', req.url));
@@ -73,25 +42,27 @@ export async function GET(req: NextRequest) {
     if (supabaseUrl && supabaseKey) {
       const supabase = createServerClient(supabaseUrl, supabaseKey, {
         cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
+          getAll() { return cookieStore.getAll(); },
+          setAll() { /* read-only here */ },
         },
       });
 
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user && mediaId) {
-        await supabase.from('user_tracker').upsert(
-          {
-            user_id: user.id,
-            media_id: mediaId,
-            progress: progressStep,
-            status: 'reading_watching',
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id,media_id' }
-        );
+        const { data: existing } = await supabase
+          .from('user_tracker').select('progress')
+          .eq('user_id', user.id).eq('media_id', mediaId).maybeSingle();
+        if (!existing) {
+          await supabase.from('user_tracker').insert({
+            user_id: user.id, media_id: mediaId, progress: Math.max(progressStep, 0),
+            status: 'reading', is_following: true,
+          });
+        } else if (progressStep > (existing.progress || 0)) {
+          await supabase.from('user_tracker').update({
+            progress: progressStep, updated_at: new Date().toISOString(),
+          }).eq('user_id', user.id).eq('media_id', mediaId);
+        }
       }
     }
   } catch (err) {
