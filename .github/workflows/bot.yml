@@ -1,0 +1,83 @@
+name: Omnidex Bot
+
+on:
+  schedule:
+    - cron: '17 3 * * *'     # sync-popular  (daily)
+    - cron: '7 */2 * * *'    # sync-chapters (every 2h)
+    - cron: '27 */3 * * *'   # sync-news     (every 3h)
+    - cron: '37 */6 * * *'   # repair-covers + triage-reports (every 6h)
+    - cron: '47 4 * * *'     # maintenance   (daily)
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Which job to run now
+        required: true
+        type: choice
+        options: [sync-popular, sync-chapters, sync-news, repair-covers, triage-reports, maintenance]
+      pages:
+        description: "sync-popular only: pages per type (50 series each). Use 40 for the first big fill."
+        required: false
+        default: '8'
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: omnidex-bot-${{ github.event.schedule || github.event.inputs.job }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install bot dependency
+        run: npm install @supabase/supabase-js@2 --no-save --no-audit --no-fund
+
+      - name: Run job(s)
+        id: bot
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NODE_NO_WARNINGS: 1
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_JOB: ${{ github.event.inputs.job }}
+          PAGES_PER_RUN: ${{ github.event.inputs.pages }}
+        run: |
+          if [ -n "$INPUT_JOB" ]; then JOBS="$INPUT_JOB"; else
+            case "$SCHEDULE" in
+              '17 3 * * *')   JOBS="sync-popular" ;;
+              '7 */2 * * *')  JOBS="sync-chapters" ;;
+              '27 */3 * * *') JOBS="sync-news" ;;
+              '37 */6 * * *') JOBS="repair-covers triage-reports" ;;
+              '47 4 * * *')   JOBS="maintenance" ;;
+              *) echo "Unknown schedule: $SCHEDULE"; exit 1 ;;
+            esac
+          fi
+          FAILED=""
+          for j in $JOBS; do
+            echo "::group::$j"
+            node "scripts/$j.mjs" || FAILED="$FAILED $j"
+            echo "::endgroup::"
+          done
+          echo "failed=${FAILED# }" >> "$GITHUB_OUTPUT"
+
+      - name: Open an issue if a job failed (one per job)
+        if: steps.bot.outputs.failed != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FAILED: ${{ steps.bot.outputs.failed }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          for j in $FAILED; do
+            title="Bot job failed: $j"
+            if [ -z "$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number')" ]; then
+              gh issue create --title "$title" --body "The scheduled job \`$j\` failed. Logs: $RUN_URL"
+            fi
+          done
+          exit 1
