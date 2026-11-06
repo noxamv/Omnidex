@@ -5,6 +5,7 @@ import { useState, useEffect, useTransition } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabase';
+import Comments from '../../../components/Comments';
 import { 
   ArrowLeft, ExternalLink, Star, Plus, Minus, Bookmark, 
   Globe, ChevronDown, ChevronUp, Flag, X, CheckCheck, 
@@ -194,12 +195,14 @@ export default function SeriesDetailPage() {
 
   const submitReport = async (e: React.FormEvent) => {
     e.preventDefault();
-    await supabase.from('media_reports').insert({
+        if (!user) { window.alert('Please sign in to send a report.'); return; }
+    const { error } = await supabase.from('media_reports').insert({
       media_id: series.id,
-      user_id: user?.id || null,
+      user_id: user.id,
       issue_type: reportType,
-      details: reportDetails,
+      details: reportDetails.slice(0, 1000),
     });
+    if (error) { window.alert('Could not send the report. Try again later.'); return; }
     setReportSubmitted(true);
     setTimeout(() => {
       setReportSubmitted(false);
@@ -236,7 +239,8 @@ export default function SeriesDetailPage() {
   const isMaxProgress = totalUnits > 0 && progress >= totalUnits;
   const completionPercentage = totalUnits > 0 ? Math.min(100, Math.round((progress / totalUnits) * 100)) : 0;
 
-  const directoryCount = totalUnits > 0 ? totalUnits : Math.max(progress + 15, 30);
+    const latestKnown = Math.floor(series.latest_chapter || 0);
+  const directoryCount = Math.max(totalUnits, latestKnown) > 0 ? Math.max(totalUnits, latestKnown) : Math.max(progress + 15, 30);
   const chapterNumbers = Array.from({ length: directoryCount }, (_, i) => i + 1);
   const displayChapters = chapterSortAsc ? chapterNumbers : [...chapterNumbers].reverse();
 
@@ -613,6 +617,9 @@ export default function SeriesDetailPage() {
           </div>
         </div>
       )}
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-16">
+        <Comments mediaId={series.id} userId={user?.id ?? null} />
+      </div>
 
       {/* Report Modal */}
       {reportOpen && (
