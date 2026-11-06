@@ -1,0 +1,11 @@
+[
+  { "name": "Anime News Network", "url": "https://www.animenewsnetwork.com/all/rss.xml?ann-edition=w" },
+  { "name": "MyAnimeList News", "url": "https://myanimelist.net/rss/news.xml" },
+  { "name": "Crunchyroll News", "url": "https://cr-news-api-service.prd.crunchyrollsvc.com/v1/en-US/rss" },
+  { "name": "Anime Corner", "url": "https://animecorner.me/feed/" },
+  { "name": "Otaku USA", "url": "https://otakuusamagazine.com/feed/" },
+  { "name": "r/manga (community)", "url": "https://www.reddit.com/r/manga/top/.rss?t=day", "media_type": "manga" },
+  { "name": "r/manhwa (community)", "url": "https://www.reddit.com/r/manhwa/top/.rss?t=day", "media_type": "manhwa" },
+  { "name": "r/LightNovels (community)", "url": "https://www.reddit.com/r/LightNovels/top/.rss?t=day", "media_type": "novel" },
+  { "name": "r/anime (community)", "url": "https://www.reddit.com/r/anime/top/.rss?t=day", "media_type": "anime" }
+]
