@@ -1,5 +1,5 @@
 {
-  "name": "omniindex",
+  "name": "omnidex",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -7,7 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "sync": "node scripts/sync-catalog.js"
+    "bot:popular": "node scripts/sync-popular.mjs",
+    "bot:chapters": "node scripts/sync-chapters.mjs",
+    "bot:news": "node scripts/sync-news.mjs",
+    "bot:covers": "node scripts/repair-covers.mjs",
+    "bot:triage": "node scripts/triage-reports.mjs",
+    "bot:maintenance": "node scripts/maintenance.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
@@ -25,5 +30,8 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
