@@ -4,7 +4,10 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { supabase } from '../lib/supabase';
+import { coverSrc } from '../lib/media';
+
 import OmnidexLogo from './OmnidexLogo';
+import AuthForm from './AuthForm';
 import { 
   Menu, Search, X, LogOut, 
   Bookmark, SlidersHorizontal, RefreshCw, 
@@ -22,9 +25,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [totalCatalogCount, setTotalCatalogCount] = useState<number | null>(null);
   const [user, setUser] = useState<any>(null);
   const [avatarUrl, setAvatarUrl] = useState<string>('https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=160&h=160&fit=crop');
-  const [email, setEmail] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
 
   // MangaFire Header Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -119,14 +119,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
-
-  const handleMagicLink = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthLoading(true);
-    await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
-    setAuthLoading(false);
-    setMagicLinkSent(true);
-  };
 
   const handleMarkAllRead = () => {
     setAllCaughtUp(true);
@@ -258,7 +250,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       onClick={() => setSearchOpen(false)}
                       className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition group"
                     >
-                      <img src={item.cover_url || '/placeholder.svg'} alt="" className="w-9 h-12 object-cover rounded-lg bg-zinc-900 border border-white/5 flex-shrink-0" />
+                      <img src={coverSrc(item.cover_url)} alt="" className="w-9 h-12 object-cover rounded-lg bg-zinc-900 border border-white/5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <h4 className="text-xs font-bold text-zinc-200 group-hover:text-indigo-400 truncate">{item.title_primary}</h4>
                         <div className="flex items-center gap-2 mt-0.5 text-[10px] text-zinc-400 uppercase font-semibold">
@@ -297,6 +289,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <Link href="/popular" onClick={() => setNavMenuOpen(false)} className="flex items-center gap-2 p-2 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-amber-400 transition"><Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" /><span>Popular Series</span></Link>
               <Link href="/filter" onClick={() => setNavMenuOpen(false)} className="flex items-center gap-2 p-2 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-indigo-400 transition"><SlidersHorizontal className="w-3.5 h-3.5 text-indigo-400" /><span>Filter</span></Link>
               <Link href="/latest" onClick={() => setNavMenuOpen(false)} className="flex items-center gap-2 p-2 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-cyan-400 transition"><Clock className="w-3.5 h-3.5 text-cyan-400" /><span>Latest Releases</span></Link>
+              <Link href="/news" onClick={() => setNavMenuOpen(false)} className="flex items-center gap-2 p-2 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-amber-400 transition"><Bell className="w-3.5 h-3.5 text-amber-400" /><span>News</span></Link>
               <Link href="/random" onClick={() => setNavMenuOpen(false)} className="flex items-center gap-2 p-2 rounded-xl hover:bg-white/5 text-zinc-200 hover:text-purple-400 transition"><Shuffle className="w-3.5 h-3.5 text-purple-400" /><span>Random Series</span></Link>
             </nav>
           </div>
@@ -371,7 +364,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Passwordless Magic Link Modal */}
+      {/* Passwordless Sign-In Modal */}
       {authOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setAuthOpen(false)} />
@@ -380,33 +373,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <h3 className="font-black text-sm text-white">Sign In to Omnidex</h3>
               <button onClick={() => setAuthOpen(false)} className="text-zinc-400 hover:text-white"><X className="w-4 h-4" /></button>
             </div>
-            {magicLinkSent ? (
-              <div className="py-6 text-center space-y-2">
-                <p className="text-sm font-bold text-emerald-400">Magic Link Dispatched!</p>
-                <p className="text-xs text-zinc-400">Check your inbox to authenticate instantly.</p>
-              </div>
-            ) : (
-              <form onSubmit={handleMagicLink} className="space-y-3 text-xs">
-                <div>
-                  <label className="text-zinc-400 block mb-1 font-semibold">Email Address:</label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="reader@example.com"
-                    className="w-full bg-zinc-950 border border-white/10 rounded-xl p-2.5 text-zinc-100 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={authLoading}
-                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 font-black text-white rounded-xl transition shadow-md shadow-indigo-600/30"
-                >
-                  {authLoading ? 'Verifying...' : 'Send Magic Link'}
-                </button>
-              </form>
-            )}
+            <AuthForm onDone={() => setAuthOpen(false)} />
           </div>
         </div>
       )}
@@ -424,6 +391,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/popular" className="hover:text-indigo-400 transition">Popular</Link>
             <span>•</span>
             <Link href="/latest" className="hover:text-indigo-400 transition">Latest</Link>
+            <span>•</span>
+            <Link href="/news" className="hover:text-indigo-400 transition">News</Link>
             <span>•</span>
             <Link href="/random" className="hover:text-indigo-400 transition">Random</Link>
           </div>
