@@ -75,7 +75,7 @@ await runJob('sync-news', async (sb) => {
     } catch (e) {
       summary.feeds[f.name] = `error: ${String(e.message).slice(0, 60)}`;
     }
-    await sleep(1500);
+        await sleep(f.url.includes('reddit.com') ? 8000 : 1500);
   }
   if (okFeeds === 0) throw new Error('Every news feed failed: ' + JSON.stringify(summary.feeds));
   return summary;
