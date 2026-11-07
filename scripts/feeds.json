@@ -3,9 +3,14 @@
   { "name": "MyAnimeList News", "url": "https://myanimelist.net/rss/news.xml" },
   { "name": "Crunchyroll News", "url": "https://cr-news-api-service.prd.crunchyrollsvc.com/v1/en-US/rss" },
   { "name": "Anime Corner", "url": "https://animecorner.me/feed/" },
+  { "name": "Anime Trending", "url": "https://www.animetrending.com/feed" },
   { "name": "Otaku USA", "url": "https://otakuusamagazine.com/feed/" },
-  { "name": "r/manga (community)", "url": "https://www.reddit.com/r/manga/top/.rss?t=day", "media_type": "manga" },
-  { "name": "r/manhwa (community)", "url": "https://www.reddit.com/r/manhwa/top/.rss?t=day", "media_type": "manhwa" },
-  { "name": "r/LightNovels (community)", "url": "https://www.reddit.com/r/LightNovels/top/.rss?t=day", "media_type": "novel" },
-  { "name": "r/anime (community)", "url": "https://www.reddit.com/r/anime/top/.rss?t=day", "media_type": "anime" }
+  { "name": "The Fandom Post", "url": "https://www.fandompost.com/feed/" },
+  { "name": "Anime UK News", "url": "https://animeuknews.net/feed" },
+  { "name": "r/manga (community)", "url": "https://www.reddit.com/r/manga/new/.rss?limit=100", "media_type": "manga" },
+  { "name": "r/manhwa (community)", "url": "https://www.reddit.com/r/manhwa/new/.rss?limit=100", "media_type": "manhwa" },
+  { "name": "r/manhua (community)", "url": "https://www.reddit.com/r/manhua/new/.rss?limit=100", "media_type": "manhua" },
+  { "name": "r/webtoons (community)", "url": "https://www.reddit.com/r/webtoons/new/.rss?limit=100", "media_type": "manhwa" },
+  { "name": "r/LightNovels (community)", "url": "https://www.reddit.com/r/LightNovels/new/.rss?limit=100", "media_type": "novel" },
+  { "name": "r/anime (community)", "url": "https://www.reddit.com/r/anime/new/.rss?limit=100", "media_type": "anime" }
 ]
