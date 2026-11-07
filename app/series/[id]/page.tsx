@@ -327,6 +327,16 @@ export default function SeriesDetailPage() {
               {totalUnits > 0 && (
                 <span className="text-[11px] font-medium text-zinc-400 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-900 border border-white/5">
                   <BookOpen className="w-3 h-3 text-indigo-400" /> {totalUnits} {series.media_type === 'anime' ? 'Episodes' : 'Chapters'} Total
+                              {series.latest_chapter ? (
+                <span className="text-[11px] font-bold text-cyan-300 px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+                  Latest: {series.media_type === 'anime' ? 'Ep.' : 'Ch.'} {series.latest_chapter}
+                </span>
+              ) : null}
+              {series.official_latest ? (
+                <span className="text-[11px] font-bold text-emerald-300 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  Official: {series.media_type === 'anime' ? 'Ep.' : 'Ch.'} {series.official_latest}
+                </span>
+              ) : null}
                 </span>
               )}
             </div>
