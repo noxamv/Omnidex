@@ -2,35 +2,30 @@ name: Omnidex Bot
 
 on:
   schedule:
-    - cron: '17 3 * * *'     # sync-popular  (daily)
-    - cron: '7 */2 * * *'    # sync-chapters (every 2h)
-    - cron: '27 */3 * * *'   # sync-news     (every 3h)
-    - cron: '37 */6 * * *'   # repair-covers + triage-reports (every 6h)
-    - cron: '47 4 * * *'     # maintenance   (daily)
+    - cron: '7,37 * * * *'
   workflow_dispatch:
     inputs:
-      job:
-        description: Which job to run now
-        required: true
-        type: choice
-        options: [sync-popular, sync-chapters, sync-news, repair-covers, triage-reports, maintenance]
-      pages:
-        description: "sync-popular only: pages per type (50 series each). Use 40 for the first big fill."
+      jobs:
+        description: 'Force jobs (space separated) or "all". Names: sync-chapters sync-news sync-popular repair-covers triage-reports maintenance. Leave empty to run only what is due.'
         required: false
-        default: '8'
+        default: ''
+      pages:
+        description: 'sync-popular only: pages per type (50 series each). Use 40 for a big first fill.'
+        required: false
+        default: ''
 
 permissions:
   contents: read
   issues: write
 
 concurrency:
-  group: omnidex-bot-${{ github.event.schedule || github.event.inputs.job }}
+  group: omnidex-bot
   cancel-in-progress: false
 
 jobs:
-  run:
+  tick:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,33 +34,15 @@ jobs:
       - name: Install bot dependency
         run: npm install @supabase/supabase-js@2 --no-save --no-audit --no-fund
 
-      - name: Run job(s)
+      - name: Run whatever is due
         id: bot
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           NODE_NO_WARNINGS: 1
-          SCHEDULE: ${{ github.event.schedule }}
-          INPUT_JOB: ${{ github.event.inputs.job }}
+          FORCE_JOBS: ${{ github.event.inputs.jobs }}
           PAGES_PER_RUN: ${{ github.event.inputs.pages }}
-        run: |
-          if [ -n "$INPUT_JOB" ]; then JOBS="$INPUT_JOB"; else
-            case "$SCHEDULE" in
-              '17 3 * * *')   JOBS="sync-popular" ;;
-              '7 */2 * * *')  JOBS="sync-chapters" ;;
-              '27 */3 * * *') JOBS="sync-news" ;;
-              '37 */6 * * *') JOBS="repair-covers triage-reports" ;;
-              '47 4 * * *')   JOBS="maintenance" ;;
-              *) echo "Unknown schedule: $SCHEDULE"; exit 1 ;;
-            esac
-          fi
-          FAILED=""
-          for j in $JOBS; do
-            echo "::group::$j"
-            node "scripts/$j.mjs" || FAILED="$FAILED $j"
-            echo "::endgroup::"
-          done
-          echo "failed=${FAILED# }" >> "$GITHUB_OUTPUT"
+        run: node scripts/tick.mjs
 
       - name: Open an issue if a job failed (one per job)
         if: steps.bot.outputs.failed != ''
