@@ -37,7 +37,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [showInstallBtn, setShowInstallBtn] = useState(false);
 
   useEffect(() => {
-    supabase.from('media_catalog').select('*', { count: 'exact', head: true }).then(({ count }) => {
+    supabase.from('media_catalog').select('*', { count: 'estimated', head: true }).then(({ count }) => {
       if (count) setTotalCatalogCount(count);
     });
 
