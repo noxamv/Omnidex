@@ -510,6 +510,7 @@ export default function SeriesDetailPage() {
             </button>
           </div>
 
+                    {directoryCount === 0 && <p className="text-xs text-zinc-500">Chapter count not available yet. Use the tracker above to record your progress.</p>}
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-80 overflow-y-auto p-1 pr-2">
             {displayChapters.map((num) => {
               const isRead = num <= progress;
