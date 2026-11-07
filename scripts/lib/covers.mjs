@@ -87,7 +87,7 @@ export async function healCover(row) {
     return { cover_url: raw, cover_ok: true, cover_checked_at: today, changed: raw !== row.cover_url ? 'normalized' : 'ok' };
   }
   if (status === null) {
-    return { cover_url: raw || row.cover_url, cover_checked_at: today, changed: 'unknown' };
+        return { cover_url: raw || row.cover_url, cover_ok: false, cover_checked_at: today, changed: 'unknown' };
   }
   const found = await findReplacementCover(row);
   if (found) return { cover_url: found.url, cover_ok: true, cover_checked_at: today, ...(found.al_id ? { al_id: found.al_id } : {}), changed: 'replaced' };
