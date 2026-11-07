@@ -423,4 +423,271 @@ export default function SeriesDetailPage() {
           </div>
 
           {/* Progress Slider Track */}
-          {totalUnits
+          {totalUnits > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs font-bold text-zinc-400">
+                <span>{completionPercentage}% complete</span>
+                <span className="text-indigo-400">{progress} of {totalUnits} {series.media_type === 'anime' ? 'episodes' : 'chapters'}</span>
+              </div>
+              <div className="w-full h-2.5 rounded-full bg-zinc-800/80 overflow-hidden p-0.5 border border-white/5">
+                <div 
+                  className="h-full bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-400 transition-all duration-300 rounded-full"
+                  style={{ width: `${completionPercentage}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Stepper Controls */}
+          <div className="flex items-center justify-between bg-zinc-950/70 px-4 py-3 rounded-2xl border border-white/5">
+            <span className="text-xs font-bold text-zinc-300">
+              {series.media_type === 'anime' ? 'Current Episode:' : 'Current Chapter:'}
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleProgressChange(progress - 1)}
+                disabled={progress <= 0}
+                className="w-9 h-9 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed text-zinc-200 flex items-center justify-center transition active:scale-95"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+
+              <div className="w-24 text-center">
+                <input
+                  type="number"
+                  value={progress}
+                  onChange={(e) => handleProgressChange(parseInt(e.target.value, 10) || 0)}
+                  className="w-16 text-center font-black text-sm text-indigo-400 bg-zinc-900 border border-white/10 rounded-lg py-1 focus:outline-none focus:border-indigo-500"
+                />
+                {totalUnits > 0 && <span className="text-[10px] text-zinc-500 ml-1">/ {totalUnits}</span>}
+              </div>
+
+              <button
+                onClick={() => handleProgressChange(progress + 1)}
+                disabled={isMaxProgress}
+                className="w-9 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center justify-center transition active:scale-95 shadow-md shadow-indigo-600/30"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Synopsis Section */}
+        <div className="p-5 rounded-2xl bg-zinc-900/40 border border-white/[0.06] space-y-2">
+          <h2 className="text-xs font-black uppercase tracking-wider text-zinc-400">Synopsis</h2>
+          <p className={`text-xs sm:text-sm text-zinc-300 leading-relaxed font-normal ${synopsisExpanded ? '' : 'line-clamp-3'}`}>
+            {series.synopsis || 'No official synopsis provided for this title.'}
+          </p>
+          {series.synopsis && series.synopsis.length > 200 && (
+            <button
+              onClick={() => setSynopsisExpanded(!synopsisExpanded)}
+              className="text-xs font-black text-indigo-400 hover:text-indigo-300 flex items-center gap-1 pt-1"
+            >
+              <span>{synopsisExpanded ? 'Show Less' : 'Read Full Overview'}</span>
+              {synopsisExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+          )}
+        </div>
+
+        {/* Interactive Chapter Directory */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-indigo-400" />
+              <h2 className="text-xs font-black uppercase tracking-wider text-zinc-200">
+                Chapter Directory ({directoryCount} Units)
+              </h2>
+            </div>
+            <button
+              onClick={() => setChapterSortAsc(!chapterSortAsc)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-zinc-900 border border-white/10 text-xs font-bold text-zinc-400 hover:text-white transition"
+            >
+              <ArrowUpDown className="w-3 h-3" />
+              <span>{chapterSortAsc ? 'Oldest First (1 → ...)' : 'Latest First (... → 1)'}</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-80 overflow-y-auto p-1 pr-2">
+            {displayChapters.map((num) => {
+              const isRead = num <= progress;
+              return (
+                <button
+                  key={num}
+                  onClick={() => handleProgressChange(num)}
+                  className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-bold transition text-left ${
+                    isRead
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                      : 'bg-zinc-900/60 hover:bg-zinc-800 border-white/5 text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <span>{series.media_type === 'anime' ? 'Ep.' : 'Ch.'} {num}{releaseDates[num] && <em className="block not-italic text-[10px] font-normal text-zinc-500">{releaseDates[num]}</em>}</span>
+                  {isRead ? (
+                    <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <span className="text-[10px] text-zinc-600 font-normal">Mark</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Verified Global Publishers & Official Raw Portals */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            <h2 className="text-xs font-black uppercase tracking-wider text-zinc-200">
+              Verified Legal Publishers & Streaming Platforms
+            </h2>
+          </div>
+
+          {uniqueLinks.length === 0 ? (
+            <div className="p-6 rounded-2xl bg-zinc-900/20 border border-dashed border-white/10 text-center">
+              <p className="text-xs text-zinc-500">Official license indexing in progress.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {uniqueLinks.map((src: any) => {
+                const regBadge = REGION_BADGES[src.region] || REGION_BADGES['GLOBAL'];
+                return (
+                  <a
+                    key={src.url}
+                    href={`/api/track?mediaId=${encodeURIComponent(series.id)}&target=${encodeURIComponent(src.url)}&step=1`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-4 rounded-2xl bg-zinc-900/60 hover:bg-zinc-850 border border-white/[0.06] hover:border-indigo-500/40 transition group shadow-lg"
+                  >
+                    <div className="space-y-1">
+                      <span className="text-xs font-black text-white group-hover:text-indigo-400 transition block">
+                        {src.site}
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border inline-block ${regBadge.style}`}>
+                        {regBadge.label}
+                      </span>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-zinc-500 group-hover:text-indigo-400 transition" />
+                  </a>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Floating Notification Toast */}
+      {toastMessage && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-zinc-900/90 backdrop-blur-xl border border-white/15 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2">
+          {toastMessage}
+        </div>
+      )}
+
+      {/* 7-Platform Social Share Sheet Modal */}
+      {shareOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setShareOpen(false)} />
+          <div className="relative w-full max-w-sm bg-zinc-900 border border-white/10 rounded-2xl p-5 shadow-2xl z-10 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="font-black text-sm text-white flex items-center gap-2">
+                <Share2 className="w-4 h-4 text-indigo-400" /> Share Series
+              </h3>
+              <button onClick={() => setShareOpen(false)} className="text-zinc-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick Copy Link Bar */}
+            <div className="flex items-center gap-2 bg-zinc-950 p-2 rounded-xl border border-white/5">
+              <input
+                readOnly
+                value={typeof window !== 'undefined' ? window.location.href : ''}
+                className="w-full bg-transparent text-xs text-zinc-400 truncate focus:outline-none"
+              />
+              <button
+                onClick={handleCopyLink}
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1"
+              >
+                {linkCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                <span>{linkCopied ? 'Copied' : 'Copy'}</span>
+              </button>
+            </div>
+
+            {/* Social Share Grid */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {getShareLinks().map((platform) => (
+                <a
+                  key={platform.name}
+                  href={platform.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex items-center justify-center py-2.5 rounded-xl border font-bold transition ${platform.color}`}
+                >
+                  {platform.name}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-16">
+        <Comments mediaId={series.id} userId={user?.id ?? null} />
+      </div>
+
+      {/* Report Modal */}
+      {reportOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setReportOpen(false)} />
+          <div className="relative w-full max-w-sm bg-zinc-900 border border-white/10 rounded-2xl p-5 shadow-2xl z-10 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="font-black text-sm text-white">Report Metadata Issue</h3>
+              <button onClick={() => setReportOpen(false)} className="text-zinc-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {reportSubmitted ? (
+              <p className="text-xs text-emerald-400 font-bold py-4 text-center">Thank you. Your report has been submitted for review.</p>
+            ) : (
+              <form onSubmit={submitReport} className="space-y-3.5 text-xs">
+                {reportError && <p className="text-rose-400" role="alert">{reportError}</p>}
+                <div>
+                  <label className="text-zinc-400 block mb-1.5 font-bold">Issue Category:</label>
+                  <select
+                    value={reportType}
+                    onChange={(e) => setReportType(e.target.value)}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl p-2.5 text-zinc-200 focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="broken_link">Broken or Dead Publisher Link</option>
+                    <option value="wrong_chapters">Incorrect Chapter/Episode Count</option>
+                    <option value="incorrect_info">Outdated Cover or Title Metadata</option>
+                    <option value="other">Other Inconsistency</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-zinc-400 block mb-1.5 font-bold">Details (Optional):</label>
+                  <textarea
+                    rows={3}
+                    value={reportDetails}
+                    onChange={(e) => setReportDetails(e.target.value)}
+                    placeholder="Provide additional context to help us verify..."
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl p-2.5 text-zinc-200 focus:outline-none focus:border-indigo-500 resize-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 font-black text-white rounded-xl transition shadow-lg shadow-indigo-600/30"
+                >
+                  Submit Feedback
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
