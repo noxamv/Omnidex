@@ -105,6 +105,7 @@ await runJob('sync-popular', async (sb) => {
             genres: (m.genres || []).slice(0, 8),
             official_links: extractOfficialLinks(m.externalLinks || []).slice(0, 6).map((l) => ({ site: l.site, url: l.url })),
             cover_ok: !!m.coverImage?.large,
+                        cover_checked_at: new Date().toISOString().slice(0, 10),
             ...common,
           });
           summary.added++;
