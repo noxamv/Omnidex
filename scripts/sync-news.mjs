@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { runJob, fetchText, norm, clip, stripHtml, sleep } from './lib/common.mjs';
 
 const feeds = JSON.parse(readFileSync(new URL('./feeds.json', import.meta.url), 'utf8'));
-const MAX_PER_FEED = 25;
+const MAX_PER_FEED = 100;
 const MAX_AGE_MS = 7 * 24 * 3600 * 1000;
 
 const unCdata = (s) => (s || '').replace(/^\s*<!\[CDATA\[/, '').replace(/\]\]>\s*$/, '').trim();
