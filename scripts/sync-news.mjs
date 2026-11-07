@@ -46,7 +46,7 @@ await runJob('sync-news', async (sb) => {
 
   for (const f of feeds) {
     try {
-      const xml = await fetchText(f.url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OmnidexBot/1.0; news reader)', Accept: 'application/rss+xml, application/atom+xml, text/xml, */*' } }, 20000);
+      const xml = await fetchText(f.url, { headers: { 'User-Agent': f.url.includes('reddit.com') ? 'web:omnidex-news:1.0 (RSS reader)' : 'Mozilla/5.0 (compatible; OmnidexBot/1.0; news reader)', Accept: 'application/rss+xml, application/atom+xml, text/xml, */*' } }, 20000);
       const rows = [];
       for (const it of parseFeed(xml).slice(0, MAX_PER_FEED)) {
         if (!it.title || !/^https?:\/\//i.test(it.link) || it.link.length > 500) continue;
