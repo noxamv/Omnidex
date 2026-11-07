@@ -253,7 +253,8 @@ export default function SeriesDetailPage() {
   const completionPercentage = totalUnits > 0 ? Math.min(100, Math.round((progress / totalUnits) * 100)) : 0;
 
   const latestKnown = Math.floor(series.latest_chapter || 0);
-  const directoryCount = Math.max(totalUnits, latestKnown) > 0 ? Math.max(totalUnits, latestKnown) : Math.max(progress + 15, 30);
+  const knownCount = Math.max(totalUnits, latestKnown);
+  const directoryCount = knownCount > 0 ? knownCount : Math.max(progress, 0);
   const chapterNumbers = Array.from({ length: directoryCount }, (_, i) => i + 1);
   const displayChapters = chapterSortAsc ? chapterNumbers : [...chapterNumbers].reverse();
 
