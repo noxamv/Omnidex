@@ -1,4 +1,6 @@
-import type { Metadata } from 'next';
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id: rawId } = await params;
+  const id = decodeURIComponent(rawId);
 import { publicClient } from '../../../lib/supabase';
 import { rawCover } from '../../../lib/media';
 
