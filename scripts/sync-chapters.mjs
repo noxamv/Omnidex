@@ -139,7 +139,7 @@ async function muMapSeries(sb, summary) {
         if (typeOk && titles.includes(norm(r.title_primary)) && rec.series_id) { id = rec.series_id; break; }
       }
     } catch { /* try again in 30 days */ }
-    await sb.from('media_catalog').update({ ...(id ? { mu_id: id } : {}), mu_checked_at: today() }).eq('id', r.id);
+        await sb.from('media_catalog').update(id ? { mu_id: id } : { mu_checked_at: today() }).eq('id', r.id);
     if (id) mapped++;
     await sleep(900);
   }
