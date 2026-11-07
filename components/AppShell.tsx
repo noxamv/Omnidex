@@ -396,7 +396,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <span>•</span>
             <Link href="/random" className="hover:text-indigo-400 transition">Random</Link>
           </div>
-          <p className="text-[10px] text-zinc-600">100% Legal Tracking. Links redirect to verified publishers and licensed platforms.</p>
+                    <div className="flex flex-wrap items-center justify-center gap-3 text-[11px]">
+            <Link href="/privacy" className="hover:text-indigo-400 transition">Privacy</Link>
+            <span>•</span>
+            <Link href="/terms" className="hover:text-indigo-400 transition">Terms</Link>
+          </div>
+          <p className="text-[10px] text-zinc-600">Series data from AniList, MangaDex and Kitsu. Links go to official publishers.</p>
         </div>
       </footer>
     </div>
