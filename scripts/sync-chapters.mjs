@@ -198,7 +198,7 @@ async function followedFullLists(sb, summary) {
 
 await runJob('sync-chapters', async (sb) => {
   const summary = {};
-  const steps = [animeEpisodes, mangadexLatest, muRecent, muMapSeries, muBaseline, followedFullLists];
+    const steps = [animeEpisodes, mangadexLatest, muRecentStep, muMapStep, muBaselineStep, followedFullLists];
   for (const step of steps) {
     try { await step(sb, summary); } catch (e) { summary[step.name + 'Error'] = String(e.message).slice(0, 120); }
   }
