@@ -97,7 +97,7 @@ export async function muMapStep(sb, summary) {
   const { data: rows } = await sb.from('media_catalog').select('id,title_primary,media_type')
     .is('mu_id', null).eq('status', 'releasing').in('media_type', Object.keys(MU_TYPE))
     .or(`mu_checked_at.is.null,mu_checked_at.lt.${daysAgo(30)}`)
-    .order('popularity', { ascending: false }).limit(120);
+    .order('popularity', { ascending: false }).limit(250);
   let mapped = 0;
   for (const r of rows || []) {
     let id = null;
