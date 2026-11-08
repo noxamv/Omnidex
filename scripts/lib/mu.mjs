@@ -36,6 +36,7 @@ export async function muRecentStep(sb, summary) {
     }
     await sleep(500);
   }
+    summary.muTitles = titleOf.size; summary.muSample = [...titleOf.values()].slice(0, 3); summary.muKeys = sample;
   if (!parsed) { summary.muRecentNote = 'nothing parsed, keys: ' + JSON.stringify(sample); return; }
 
   const names = new Map();
