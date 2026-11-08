@@ -1,4 +1,5 @@
 import { runJob, fetchJson, sleep, norm, upsertBatches } from './lib/common.mjs';
+import { muRecentStep, muMapStep, muBaselineStep } from './lib/mu.mjs';
 
 const UA = { 'User-Agent': 'Omnidex-Bot/1.0 (tracker; +github actions)' };
 const MU = 'https://api.mangaupdates.com/v1';
