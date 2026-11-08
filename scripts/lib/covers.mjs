@@ -12,13 +12,35 @@ export function unwrapProxy(url) {
 
 export const isHttps = (u) => /^https:\/\/[^\s]+$/i.test(u || '');
 
+// Politeness: each host gets its own minimum gap between requests, so image servers never see a burst.
+const GAP_MS = { 'uploads.mangadex.org': 450, 'media.kitsu.app': 150, 's4.anilist.co': 60 };
+const nextSlot = new Map();
+async function throttle(url) {
+  let host;
+  try { host = new URL(url).hostname; } catch { return; }
+  const now = Date.now();
+  const at = Math.max(now, nextSlot.get(host) || 0);
+  nextSlot.set(host, at + (GAP_MS[host] ?? 120));
+  if (at > now) await sleep(at - now);
+}
+function coolDown(url, ms) {
+  try { nextSlot.set(new URL(url).hostname, Date.now() + ms); } catch { /* ignore */ }
+}
+
 // true = image loads, false = definitely broken, null = could not tell
 export async function checkImage(url) {
   if (!isHttps(url)) return false;
   try {
+    await throttle(url);
     let res = await fetch(url, { method: 'HEAD', headers: UA, redirect: 'follow', signal: AbortSignal.timeout(10000) });
     if (res.status === 405 || res.status === 403) {
+      await throttle(url);
       res = await fetch(url, { headers: { ...UA, Range: 'bytes=0-1023' }, redirect: 'follow', signal: AbortSignal.timeout(10000) });
+    }
+    if (res.status === 429) {
+      const wait = Number(res.headers.get('retry-after')) * 1000 || 30000;
+      coolDown(url, Math.min(wait, 120000));
+      return null;
     }
     if (res.status === 404 || res.status === 410) return false;
     if (!res.ok && res.status !== 206) return null;
@@ -87,7 +109,7 @@ export async function healCover(row) {
     return { cover_url: raw, cover_ok: true, cover_checked_at: today, changed: raw !== row.cover_url ? 'normalized' : 'ok' };
   }
   if (status === null) {
-        return { cover_url: raw || row.cover_url, cover_ok: false, cover_checked_at: today, changed: 'unknown' };
+    return { cover_url: raw || row.cover_url, cover_ok: false, cover_checked_at: today, changed: 'unknown' };
   }
   const found = await findReplacementCover(row);
   if (found) return { cover_url: found.url, cover_ok: true, cover_checked_at: today, ...(found.al_id ? { al_id: found.al_id } : {}), changed: 'replaced' };
