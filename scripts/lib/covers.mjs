@@ -2,6 +2,14 @@ import { fetchJson, norm, sleep } from './common.mjs';
 
 const UA = { 'User-Agent': 'Omnidex-Bot/1.0 (+github actions)' };
 
+// Counts the HTTP status codes seen while checking covers (shown in the run summary).
+export const checkStats = {};
+const bump = (k) => { checkStats[k] = (checkStats[k] || 0) + 1; };
+
+// Hosts that block automated checks from GitHub but serve users fine. Their URLs come straight from the source API.
+const TRUSTED_HOSTS = ['uploads.mangadex.org'];
+const hostOf = (u) => { try { return new URL(u).hostname; } catch { return ''; } };
+
 export function unwrapProxy(url) {
   if (!url) return null;
   if (url.startsWith('/api/proxy')) {
@@ -37,6 +45,7 @@ export async function checkImage(url) {
       await throttle(url);
       res = await fetch(url, { headers: { ...UA, Range: 'bytes=0-1023' }, redirect: 'follow', signal: AbortSignal.timeout(10000) });
     }
+    bump(String(res.status));
     if (res.status === 429) {
       const wait = Number(res.headers.get('retry-after')) * 1000 || 30000;
       coolDown(url, Math.min(wait, 120000));
@@ -46,7 +55,7 @@ export async function checkImage(url) {
     if (!res.ok && res.status !== 206) return null;
     const type = res.headers.get('content-type') || '';
     return type.startsWith('image/') ? true : false;
-  } catch { return null; }
+  } catch { bump('error'); return null; }
 }
 
 // 404/410 = dead link. Sites that block bots (403/429) count as "unknown", not dead.
@@ -100,9 +109,12 @@ export async function findReplacementCover(row) {
   return null;
 }
 
-export async function healCover(row) {
+export async function healCover(row, { assumeTrusted = false } = {}) {
   const today = new Date().toISOString().slice(0, 10);
   const raw = unwrapProxy(row.cover_url);
+  if (assumeTrusted && isHttps(raw) && TRUSTED_HOSTS.includes(hostOf(raw))) {
+    return { cover_url: raw, cover_ok: true, cover_checked_at: today, changed: raw !== row.cover_url ? 'normalized' : 'ok' };
+  }
   const status = raw ? await checkImage(raw) : false;
 
   if (status === true) {
