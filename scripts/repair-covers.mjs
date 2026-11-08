@@ -1,5 +1,5 @@
 import { runJob, upsertBatches } from './lib/common.mjs';
-import { healCover } from './lib/covers.mjs';
+import { healCover, checkStats } from './lib/covers.mjs';
 
 const BUDGET_MS = Number(process.env.COVER_BUDGET_MIN || 20) * 60 * 1000;
 const PAGE = 400;
@@ -23,7 +23,7 @@ await runJob('repair-covers', async (sb) => {
     const worker = async () => {
       while (i < rows.length) {
         const row = rows[i++];
-        const r = await healCover(row);
+                const r = await healCover(row, { assumeTrusted: true });
         summary.checked++; summary[r.changed]++;
         const { changed, ...cols } = r;
         const links = Array.isArray(row.official_links) ? row.official_links : [];
@@ -39,5 +39,6 @@ await runJob('repair-covers', async (sb) => {
 
   const { count } = await sb.from('media_catalog').select('id', { count: 'exact', head: true }).or(QUEUE);
   summary.stillQueued = count;
+    summary.statuses = { ...checkStats };
   return summary;
 });
