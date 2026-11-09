@@ -1,5 +1,5 @@
 export const JOBS = [
-  { name: 'sync-chapters',  every: 25,   timeoutMin: 12 },
+  { name: 'sync-chapters',  every: 25,   timeoutMin: 25 },
   { name: 'sync-news',      every: 25,   timeoutMin: 8 },
   { name: 'sync-popular',   every: 180,  timeoutMin: 10 },
   { name: 'repair-covers',  every: 360,  timeoutMin: 25 },
